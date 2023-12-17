@@ -103,12 +103,18 @@ func addNewTokenToUser(exec execer, userID int) (Token, error) {
 }
 
 func AuthenticateUser(userReq *User) (*User, error) {
+	if userReq.Email == "" {
+		return nil, fmt.Errorf("missing email")
+	}
+	if userReq.Password == "" {
+		return nil, fmt.Errorf("missing password")
+	}
 	user, err := GetUserWithEmail(userReq.Email)
 	if err != nil {
-		return nil, fmt.Errorf("user %s not found", userReq.Email)
+		return nil, fmt.Errorf("user '%s' not found", userReq.Email)
 	}
 	if !comparePasswords(user.Password, userReq.Password) {
-		return nil, fmt.Errorf("wrong password for user %s", userReq.Email)
+		return nil, fmt.Errorf("wrong password for user '%s'", userReq.Email)
 	}
 	return user, nil
 }
@@ -140,7 +146,7 @@ func RegisterUser(userReq *User) (*User, error) {
 		return nil, serverError("cannot hash password", err)
 	}
 	if EmailExists(userReq.Email) {
-		return nil, fmt.Errorf("email %s is already registered", userReq.Email)
+		return nil, fmt.Errorf("email '%s' is already registered", userReq.Email)
 	}
 	tx, err := db.Begin()
 	if err != nil {
