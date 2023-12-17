@@ -62,29 +62,33 @@ type User struct {
 func GetUserWithToken(token Token) (*User, error) {
 	// TODO: differentiate between a token not found and a general error.
 	var user User
+	var creationTime float64
 	err := db.QueryRow(`
 	SELECT users.id, users.email, users.email_verified, users.screen_name, users.password_hash, users.creation_time 
 	FROM tokens 
 	JOIN users ON tokens.user_id = users.id 
 	WHERE tokens.token = ?
-	`, token).Scan(&user.Id, &user.Email, &user.EmailVerified, &user.ScreenName, &user.Password, &user.CreationTime)
+	`, token).Scan(&user.Id, &user.Email, &user.EmailVerified, &user.ScreenName, &user.Password, &creationTime)
 	if err != nil {
 		return nil, err
 	}
+	user.CreationTime = int(creationTime)
 	return &user, nil
 }
 
 func GetUserWithEmail(email string) (*User, error) {
 	// TODO: differentiate between a user not found and a general error.
 	var user User
+	var creationTime float64
 	err := db.QueryRow(`
 	SELECT id, email, email_verified, screen_name, password_hash, creation_time 
 	FROM users 
 	WHERE email = ?
-	`, email).Scan(&user.Id, &user.Email, &user.EmailVerified, &user.ScreenName, &user.Password, &user.CreationTime)
+	`, email).Scan(&user.Id, &user.Email, &user.EmailVerified, &user.ScreenName, &user.Password, &creationTime)
 	if err != nil {
 		return nil, err
 	}
+	user.CreationTime = int(creationTime)
 	return &user, nil
 }
 
@@ -217,7 +221,7 @@ func sendRegistrationEmail(email, screenName, verificationLink string) error {
 	}{email, screenName, verificationLink}); err != nil {
 		return fmt.Errorf("executing email template: %v", err)
 	}
-	return sendMessage(email, "Gipf Game Server Registration", buf.String())
+	return SendMessage(email, "Gipf Game Server Registration", buf.String())
 }
 
 func changePassword(userReq *User) (*User, error) {

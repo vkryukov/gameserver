@@ -1,7 +1,6 @@
 package gameserver_test
 
 import (
-	"fmt"
 	"testing"
 
 	gs "github.com/vkryukov/gameserver"
@@ -12,9 +11,10 @@ func TestAuth(t *testing.T) {
 	if err := gs.InitDB(":memory:"); err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
+	mockMailServer := &gs.MockEmailSender{}
+	gs.InitEmailServer(mockMailServer)
 
 	userReq := &gs.User{Email: "test@example.com", Password: "password"}
-	fmt.Println(userReq)
 
 	// Test 1: after registering a user, it can be found with getUserWithToken and getUserWithEmail
 	registeredUser, err := gs.RegisterUser(userReq)
