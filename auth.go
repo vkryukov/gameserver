@@ -102,7 +102,7 @@ func addNewTokenToUser(exec execer, userID int) (Token, error) {
 	return token, err
 }
 
-func authenticateUser(userReq *User) (*User, error) {
+func AuthenticateUser(userReq *User) (*User, error) {
 	user, err := GetUserWithEmail(userReq.Email)
 	if err != nil {
 		return nil, fmt.Errorf("user %s not found", userReq.Email)
@@ -187,27 +187,26 @@ func createVerificationLink(exec execer, userID int64) (string, error) {
 
 var emailTmpl *template.Template
 
+// TODO: the specific template of the email should be configurable by the users of the library.
 func init() {
-	const emailTemplate = `
-    Hello Gipf player,
+	const emailTemplate = `Hello Gipf player,
 
-    Thank you for registering for our game server! Here are the details 
-    that we have recorded:
-        - your email is {{.Email}}
-		- your screen name is {{.ScreenName}}
+Thank you for registering for our game server! Here are the details 
+that we have recorded:
+	- your email is {{.Email}}
+	- your screen name is {{.ScreenName}}
 
-    IMPORTANT: Your email address is used to reset your password, and 
-    needs to be verified. Please click on the following link to verify it:
+IMPORTANT: Your email address is used to reset your password, and 
+needs to be verified. Please click on the following link to verify it:
 
-    {{.VerificationLink}}
+{{.VerificationLink}}
 
-	You cannot join games until you verify your email address.
+You cannot join games until you verify your email address.
 
-    If you did not register for our game server, please ignore this email.
+If you did not register for our game server, please ignore this email.
 
-    Regards,
-    The Gipf Game Master.
-    `
+Regards,
+The Gipf Game Master.`
 
 	emailTmpl = template.Must(template.New("email").Parse(emailTemplate))
 }
@@ -225,7 +224,7 @@ func sendRegistrationEmail(email, screenName, verificationLink string) error {
 }
 
 func changePassword(userReq *User) (*User, error) {
-	user, err := authenticateUser(userReq)
+	user, err := AuthenticateUser(userReq)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +295,7 @@ func handleUser(w http.ResponseWriter, r *http.Request, userFunc func(*User) (*U
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	handleUser(w, r, authenticateUser)
+	handleUser(w, r, AuthenticateUser)
 }
 
 func registerUserHandler(w http.ResponseWriter, r *http.Request) {

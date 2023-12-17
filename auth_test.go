@@ -6,12 +6,23 @@ import (
 	gs "github.com/vkryukov/gameserver"
 )
 
+// MockEmailSender implements EmailSender for testing purposes.
+type MockEmailSender struct {
+	To      string
+	Subject string
+	Body    string
+}
+
+func (s *MockEmailSender) Send(to, subject, body string) error {
+	s.To = to
+	s.Subject = subject
+	s.Body = body
+	return nil
+}
+
 // Tests
-func TestAuth(t *testing.T) {
-	if err := gs.InitDB(":memory:"); err != nil {
-		t.Fatalf("Failed to initialize database: %v", err)
-	}
-	mockMailServer := &gs.MockEmailSender{}
+func TestBasicRegistrationAndAuthentication(t *testing.T) {
+	mockMailServer := &MockEmailSender{}
 	gs.InitEmailServer(mockMailServer)
 
 	userReq := &gs.User{Email: "test@example.com", Password: "password"}
@@ -41,5 +52,21 @@ func TestAuth(t *testing.T) {
 	_, err = gs.RegisterUser(userReq)
 	if err == nil {
 		t.Fatalf("Expected error when registering user with duplicate email, got nil")
+	}
+
+	// Test 4: after registering a user, it can be authenticated with the right password
+	authenticatedUser, err := gs.AuthenticateUser(userReq)
+	if err != nil {
+		t.Fatalf("Failed to authenticate user: %v", err)
+	}
+	if authenticatedUser.Email != registeredUser.Email {
+		t.Fatalf("Authenticated user has wrong email: %s", authenticatedUser.Email)
+	}
+
+	// Test 5: after registering a user, it cannot be authenticated with the wrong password
+	userReq.Password = "wrong password"
+	_, err = gs.AuthenticateUser(userReq)
+	if err == nil {
+		t.Fatalf("Expected error when authenticating user with wrong password, got nil")
 	}
 }
