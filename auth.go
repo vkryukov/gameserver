@@ -313,17 +313,23 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func authenticateToken(r *http.Request) (*User, error) {
-	token := Token(r.Header.Get("token"))
+	token := Token(r.URL.Query().Get("token"))
 	if token == "" {
 		return nil, fmt.Errorf("missing token")
 	}
-	return GetUserWithToken(token)
+	user, err := GetUserWithToken(token)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("token not found")
+	} else if err != nil {
+		return nil, serverError("cannot get user with token", err)
+	}
+	return user, nil
 }
 
 func verificationHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := authenticateToken(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendError(w, err)
 		return
 	}
 	_, err = db.Exec("UPDATE users SET verified = 1 WHERE email = ?", user.Email)
@@ -338,7 +344,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 func checkHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := authenticateToken(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendError(w, err)
 		return
 	}
 	sendUserResponse(w, user)

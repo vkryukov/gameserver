@@ -119,7 +119,7 @@ func isErrorResponse(resp []byte, substring string) bool {
 	return strings.Contains(response.Error, substring)
 }
 
-func TestLoginHandler(t *testing.T) {
+func TestLoginAndCheckHandler(t *testing.T) {
 	mockMailServer := &MockEmailSender{}
 	gameserver.InitEmailServer(mockMailServer)
 
@@ -146,6 +146,22 @@ func TestLoginHandler(t *testing.T) {
 	}
 	if user.Email != userReq.Email {
 		t.Fatalf("Authenticated user has wrong email: %s", user.Email)
+	}
+
+	// Test 1.2: we can check the user with the token
+	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token="+string(responseUser.Token), []byte(""))
+	err = json.Unmarshal(resp, &responseUser)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response '%s': %v", resp, err)
+	}
+	if responseUser.Email != userReq.Email {
+		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
+	}
+
+	// Test 1.3: we can't check the user with the wrong token
+	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token=wrong-token", []byte(""))
+	if !isErrorResponse(resp, "token not found") {
+		t.Fatalf("Expected error when checking user with wrong token, got '%s'", resp)
 	}
 
 	// Test 2: registered user cannot be authenticated with wrong password
@@ -180,5 +196,4 @@ func TestLoginHandler(t *testing.T) {
 	if !isErrorResponse(resp, "invalid character") {
 		t.Fatalf("Expected error when authenticating with wrong body, got %s", resp)
 	}
-
 }
