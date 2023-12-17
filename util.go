@@ -12,7 +12,7 @@ var allowedOrigins = map[string]bool{
 	"https://playgipf.com":  true,
 }
 
-func enableCors(handler http.HandlerFunc) http.HandlerFunc {
+func EnableCors(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if strings.HasPrefix(origin, "http://localhost") || origin == "" || origin == "null" || allowedOrigins[origin] {
