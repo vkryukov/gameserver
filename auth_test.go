@@ -3,6 +3,7 @@ package gameserver_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -147,15 +148,22 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	if user.Email != userReq.Email {
 		t.Fatalf("Authenticated user has wrong email: %s", user.Email)
 	}
+	if user.Token == "" {
+		t.Fatalf("Authenticated user has empty token")
+	}
 
 	// Test 1.2: we can check the user with the token
-	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token="+string(responseUser.Token), []byte(""))
+	fmt.Println("Test 1.2: user.Token", user.Token)
+	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token="+string(user.Token), []byte(""))
 	err = json.Unmarshal(resp, &responseUser)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal response '%s': %v", resp, err)
 	}
 	if responseUser.Email != userReq.Email {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
+	}
+	if responseUser.Token != user.Token {
+		t.Fatalf("Authenticated user has wrong token: '%s' insteasd of '%s'", responseUser.Token, user.Token)
 	}
 
 	// Test 1.3: we can't check the user with the wrong token

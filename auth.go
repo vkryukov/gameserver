@@ -73,6 +73,7 @@ func GetUserWithToken(token Token) (*User, error) {
 		return nil, err
 	}
 	user.CreationTime = int(creationTime)
+	user.Token = token
 	return &user, nil
 }
 
