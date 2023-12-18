@@ -39,7 +39,7 @@ func writeJSONResponse(w http.ResponseWriter, response interface{}) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Sending JSON response:\n%s%s%s", Cyan, string(jsonResponse), Reset)
+	log.Printf("Sending JSON response:\n%s%s%s", cyanColor, string(jsonResponse), resetColor)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonResponse)
 }

@@ -1,0 +1,30 @@
+package gameserver
+
+import (
+	"log"
+	"net/http"
+)
+
+func RegisterAdminHandlers(prefix, baseURL string) {
+	http.HandleFunc(baseURL+prefix+"/users", EnableCors(handleListUsers))
+	http.HandleFunc(baseURL+prefix+"/games", EnableCors(handleListGames))
+}
+
+func handleListUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := listUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSONResponse(w, users)
+}
+
+func handleListGames(w http.ResponseWriter, r *http.Request) {
+	games, err := listGames()
+	log.Printf("Games: %v", games)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSONResponse(w, games)
+}
