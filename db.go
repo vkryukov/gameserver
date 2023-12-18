@@ -5,6 +5,7 @@ package gameserver
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"sort"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -79,6 +80,17 @@ func InitDB(path string) error {
     `
 	_, err = db.Exec(sqlStmt)
 	return err
+}
+
+func CloseDB() {
+	_, err := db.Exec("PRAGMA wal_checkpoint;")
+	if err != nil {
+		log.Printf("Error executing PRAGMA wal_checkpoint: %v", err)
+	}
+	err = db.Close()
+	if err != nil {
+		log.Printf("Error closing database: %v", err)
+	}
 }
 
 type PlayerType int
