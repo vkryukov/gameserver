@@ -3,7 +3,6 @@ package gameserver_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -14,53 +13,63 @@ import (
 	"github.com/vkryukov/gameserver"
 )
 
-func TestBasicRegistrationAndAuthentication(t *testing.T) {
-	userReq := &gameserver.User{Email: "test@example.com", Password: "password"}
-
-	// Test 1: after registering a user, it can be found with getUserWithToken and getUserWithEmail
-	registeredUser, err := gameserver.RegisterUser(userReq)
+func mustRegisterUser(t *testing.T, email string, password string, screenName string) *gameserver.User {
+	userReq := &gameserver.User{Email: email, Password: password, ScreenName: screenName}
+	_, err := gameserver.RegisterUser(userReq)
 	if err != nil {
 		t.Fatalf("Failed to register user: %v", err)
 	}
-
-	foundUser, err := gameserver.GetUserWithEmail(userReq.Email)
-	if err != nil || foundUser.Email != registeredUser.Email {
-		t.Fatalf("Failed to find user with getUserWithEmail: %v", err)
+	user, err := gameserver.GetUserWithEmail(email)
+	if err != nil {
+		t.Fatalf("Failed to get user: %v", err)
 	}
+	if user.Email != email {
+		t.Fatalf("Registered user has wrong email: %s", user.Email)
+	}
+	return user
+}
 
-	if err != nil || foundUser.Email != registeredUser.Email {
-		t.Fatalf("Failed to find user with getUserWithToken: %v", err)
+// Test user 1
+var testEmail = "test-register@example.com"
+var testPassword = "register-user-password"
+var testScreenName = "Test Register User"
+
+func TestBasicRegistrationAndAuthentication(t *testing.T) {
+	testUser := mustRegisterUser(t, testEmail, testPassword, testScreenName)
+	// Test 1: after registering a user, it can be found with getUserWithEmail
+	foundUser1, err := gameserver.GetUserWithEmail(testEmail)
+	if err != nil || foundUser1.Email != testEmail {
+		t.Fatalf("Failed to find user with GetUserWithEmail: %v", err)
 	}
 
 	// Test 2: after registering a user, emailExists should return true.
-	if !gameserver.EmailExists(userReq.Email) {
+	if !gameserver.EmailExists(testEmail) {
 		t.Fatalf("emailExists returned false after registering user")
 	}
 
 	// Test 3: after registering a user, another one cannot be registered with the same email.
-	_, err = gameserver.RegisterUser(userReq)
+	_, err = gameserver.RegisterUser(testUser)
 	if err == nil {
 		t.Fatalf("Expected error when registering user with duplicate email, got nil")
 	}
 
 	// Test 4: after registering a user, it can be authenticated with the right password
-	authenticatedUser, err := gameserver.AuthenticateUser(userReq)
+	authenticatedUser, err := gameserver.AuthenticateUser(&gameserver.User{Email: testEmail, Password: testPassword})
 	if err != nil {
 		t.Fatalf("Failed to authenticate user: %v", err)
 	}
-	if authenticatedUser.Email != registeredUser.Email {
+	if authenticatedUser.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", authenticatedUser.Email)
 	}
 
 	// Test 5: after registering a user, it cannot be authenticated with the wrong password
-	userReq.Password = "wrong password"
-	_, err = gameserver.AuthenticateUser(userReq)
+	_, err = gameserver.AuthenticateUser(&gameserver.User{Email: testEmail, Password: "wrong password"})
 	if err == nil {
 		t.Fatalf("Expected error when authenticating user with wrong password, got nil")
 	}
 
 	// Test 6: after registering a user, the email is not verified
-	if registeredUser.EmailVerified {
+	if testUser.EmailVerified {
 		t.Fatalf("Registered user has verified email")
 	}
 }
@@ -106,19 +115,14 @@ func isErrorResponse(resp []byte, substring string) bool {
 }
 
 func TestLoginAndCheckHandler(t *testing.T) {
-	userReq := &gameserver.User{
-		Email:    "test@example.com",
-		Password: "password",
-	}
-
 	// Test 1: registered user can be authenticated with right password
-	resp := postUserRequest(t, "http://localhost:1234/auth/login", userReq)
+	resp := postUserRequest(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmail, Password: testPassword})
 	var responseUser gameserver.User
 	err := json.Unmarshal(resp, &responseUser)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
-	if responseUser.Email != userReq.Email {
+	if responseUser.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
 	}
 
@@ -127,7 +131,7 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get user with token: %v", err)
 	}
-	if user.Email != userReq.Email {
+	if user.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", user.Email)
 	}
 	if user.Token == "" {
@@ -135,13 +139,12 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	}
 
 	// Test 1.2: we can check the user with the token
-	fmt.Println("Test 1.2: user.Token", user.Token)
 	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token="+string(user.Token), []byte(""))
 	err = json.Unmarshal(resp, &responseUser)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal response '%s': %v", resp, err)
 	}
-	if responseUser.Email != userReq.Email {
+	if responseUser.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
 	}
 	if responseUser.Token != user.Token {
@@ -155,16 +158,13 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	}
 
 	// Test 2: registered user cannot be authenticated with wrong password
-	userReq.Password = "wrong password"
-	resp = postUserRequest(t, "http://localhost:1234/auth/login", userReq)
+	resp = postUserRequest(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmail, Password: "wrong password"})
 	if !isErrorResponse(resp, "wrong password") {
 		t.Fatalf("Expected error when authenticating unregistered user, got %s", resp)
 	}
 
 	// Test 3: unregistered user cannot be authenticated
-	userReq.Email = "test1@example.com"
-	userReq.Password = "password"
-	resp = postUserRequest(t, "http://localhost:1234/auth/login", userReq)
+	resp = postUserRequest(t, "http://localhost:1234/auth/login", &gameserver.User{Email: "user-doesnt-exist@example.com", Password: "password"})
 	if !isErrorResponse(resp, "not found") {
 		t.Fatalf("Expected error when authenticating unregistered user, got %s", resp)
 	}
@@ -192,27 +192,13 @@ func TestEmailVerification(t *testing.T) {
 	mockMailServer := &gameserver.MockEmailSender{}
 	gameserver.SetMailServer(mockMailServer)
 
-	userReq := &gameserver.User{
-		Email:      "test2@example.com",
-		ScreenName: "Test User",
-		Password:   "password",
-	}
+	testEmailUser := "test-email@example.com"
+	testEmailPassword := "email-user-password"
+	testEmailScreenName := "Test Email User"
 
-	// Test 1: we can register a test user
-	resp := postUserRequest(t, "http://localhost:1234/auth/register", userReq)
-	var responseUser gameserver.User
-	err := json.Unmarshal(resp, &responseUser)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
-	}
-	if responseUser.Email != userReq.Email {
-		t.Fatalf("Registered user has wrong email: %s", responseUser.Email)
-	}
-	if responseUser.Token == "" {
-		t.Fatalf("Registered user has empty token")
-	}
+	mustRegisterUser(t, testEmailUser, testEmailPassword, testEmailScreenName)
 
-	// Test 2: we can verify the user with the verification URL
+	// Test 1: we can verify the user with the verification URL
 
 	// Finding a verification token in the email.
 	verificationUrlRx := regexp.MustCompile(`(https?://.*/auth/verify\?token=[a-f0-9]+)[\s\n]`)
@@ -223,21 +209,22 @@ func TestEmailVerification(t *testing.T) {
 	verificationUrl := matches[1]
 
 	// Visit the verification URL, and make sure there is no error.
-	resp = postRequestWithBody(t, verificationUrl, []byte(""))
+	resp := postRequestWithBody(t, verificationUrl, []byte(""))
 	log.Printf("resp = %s", resp)
 	if isErrorResponse(resp, "") {
 		t.Fatalf("Failed to verify email: %s", resp)
 	}
 
-	resp = postUserRequest(t, "http://localhost:1234/auth/login", userReq)
+	resp = postUserRequest(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmailUser, Password: testEmailPassword})
+	var responseUser gameserver.User
 	if isErrorResponse(resp, "") {
 		t.Fatalf("Failed log in again: %s", resp)
 	}
-	err = json.Unmarshal(resp, &responseUser)
+	err := json.Unmarshal(resp, &responseUser)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
-	if responseUser.Email != userReq.Email {
+	if responseUser.Email != testEmailUser {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
 	}
 	if !responseUser.EmailVerified {
