@@ -27,7 +27,7 @@ var (
 
 func setup() {
 	gameserver.InitDB(":memory:")
-	gameserver.SetMailServer(&MockEmailSender{})
+	gameserver.SetMailServer(&gameserver.MockEmailSender{})
 	port = ":1234"
 	baseURL = "http://localhost" + port
 	srv = http.Server{

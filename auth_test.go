@@ -14,24 +14,7 @@ import (
 	"github.com/vkryukov/gameserver"
 )
 
-// MockEmailSender implements EmailSender for testing purposes.
-type MockEmailSender struct {
-	To      string
-	Subject string
-	Body    string
-}
-
-func (s *MockEmailSender) Send(to, subject, body string) error {
-	s.To = to
-	s.Subject = subject
-	s.Body = body
-	return nil
-}
-
 func TestBasicRegistrationAndAuthentication(t *testing.T) {
-	mockMailServer := &MockEmailSender{}
-	gameserver.SetMailServer(mockMailServer)
-
 	userReq := &gameserver.User{Email: "test@example.com", Password: "password"}
 
 	// Test 1: after registering a user, it can be found with getUserWithToken and getUserWithEmail
@@ -123,9 +106,6 @@ func isErrorResponse(resp []byte, substring string) bool {
 }
 
 func TestLoginAndCheckHandler(t *testing.T) {
-	mockMailServer := &MockEmailSender{}
-	gameserver.SetMailServer(mockMailServer)
-
 	userReq := &gameserver.User{
 		Email:    "test@example.com",
 		Password: "password",
@@ -209,7 +189,7 @@ func TestLoginAndCheckHandler(t *testing.T) {
 }
 
 func TestEmailVerification(t *testing.T) {
-	mockMailServer := &MockEmailSender{}
+	mockMailServer := &gameserver.MockEmailSender{}
 	gameserver.SetMailServer(mockMailServer)
 
 	userReq := &gameserver.User{

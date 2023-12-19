@@ -43,6 +43,20 @@ func SmtpServerFromConfig(path string) (*SmtpServer, error) {
 	return &server, err
 }
 
+// MockEmailSender implements EmailSender for testing purposes.
+type MockEmailSender struct {
+	To      string
+	Subject string
+	Body    string
+}
+
+func (s *MockEmailSender) Send(to, subject, body string) error {
+	s.To = to
+	s.Subject = subject
+	s.Body = body
+	return nil
+}
+
 var globalMailServer EmailSender
 
 func SetMailServer(server EmailSender) {
