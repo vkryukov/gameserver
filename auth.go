@@ -333,7 +333,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 		sendError(w, err)
 		return
 	}
-	_, err = db.Exec("UPDATE users SET verified = 1 WHERE email = ?", user.Email)
+	_, err = db.Exec("UPDATE users SET email_verified = 1 WHERE email = ?", user.Email)
 	if err != nil {
 		sendError(w, err)
 		return

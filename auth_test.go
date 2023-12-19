@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -117,7 +119,7 @@ func isErrorResponse(resp []byte, substring string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(response.Error, substring)
+	return response.Error != "" && strings.Contains(response.Error, substring)
 }
 
 func TestLoginAndCheckHandler(t *testing.T) {
@@ -204,4 +206,62 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	if !isErrorResponse(resp, "invalid character") {
 		t.Fatalf("Expected error when authenticating with wrong body, got %s", resp)
 	}
+}
+
+func TestEmailVerification(t *testing.T) {
+	mockMailServer := &MockEmailSender{}
+	gameserver.SetMailServer(mockMailServer)
+
+	userReq := &gameserver.User{
+		Email:      "test2@example.com",
+		ScreenName: "Test User",
+		Password:   "password",
+	}
+
+	// Test 1: we can register a test user
+	resp := postUserRequest(t, "http://localhost:1234/auth/register", userReq)
+	var responseUser gameserver.User
+	err := json.Unmarshal(resp, &responseUser)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if responseUser.Email != userReq.Email {
+		t.Fatalf("Registered user has wrong email: %s", responseUser.Email)
+	}
+	if responseUser.Token == "" {
+		t.Fatalf("Registered user has empty token")
+	}
+
+	// Test 2: we can verify the user with the verification URL
+
+	// Finding a verification token in the email.
+	verificationUrlRx := regexp.MustCompile(`(https?://.*/auth/verify\?token=[a-f0-9]+)[\s\n]`)
+	matches := verificationUrlRx.FindStringSubmatch(mockMailServer.Body)
+	if len(matches) != 2 {
+		t.Fatalf("Failed to find verification URL in email body: %s", mockMailServer.Body)
+	}
+	verificationUrl := matches[1]
+
+	// Visit the verification URL, and make sure there is no error.
+	resp = postRequestWithBody(t, verificationUrl, []byte(""))
+	log.Printf("resp = %s", resp)
+	if isErrorResponse(resp, "") {
+		t.Fatalf("Failed to verify email: %s", resp)
+	}
+
+	resp = postUserRequest(t, "http://localhost:1234/auth/login", userReq)
+	if isErrorResponse(resp, "") {
+		t.Fatalf("Failed log in again: %s", resp)
+	}
+	err = json.Unmarshal(resp, &responseUser)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if responseUser.Email != userReq.Email {
+		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
+	}
+	if !responseUser.EmailVerified {
+		t.Fatalf("Authenticated user has unverified email")
+	}
+
 }
