@@ -26,6 +26,9 @@ func mustRegisterUser(t *testing.T, email string, password string, screenName st
 	if user.Email != email {
 		t.Fatalf("Registered user has wrong email: %s", user.Email)
 	}
+	if user.EmailVerified {
+		t.Fatalf("Newly registered user has a verified email")
+	}
 	return user
 }
 
@@ -68,10 +71,6 @@ func TestBasicRegistrationAndAuthentication(t *testing.T) {
 		t.Fatalf("Expected error when authenticating user with wrong password, got nil")
 	}
 
-	// Test 6: after registering a user, the email is not verified
-	if testUser.EmailVerified {
-		t.Fatalf("Registered user has verified email")
-	}
 }
 
 func postRequestWithBody(t *testing.T, url string, body []byte) []byte {
