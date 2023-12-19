@@ -45,7 +45,7 @@ func SmtpServerFromConfig(path string) (*SmtpServer, error) {
 
 var globalMailServer EmailSender
 
-func InitEmailServer(server EmailSender) {
+func SetMailServer(server EmailSender) {
 	globalMailServer = server
 }
 func SendMessage(to, subject, body string) error {

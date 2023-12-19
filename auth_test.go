@@ -28,7 +28,7 @@ func (s *MockEmailSender) Send(to, subject, body string) error {
 
 func TestBasicRegistrationAndAuthentication(t *testing.T) {
 	mockMailServer := &MockEmailSender{}
-	gameserver.InitEmailServer(mockMailServer)
+	gameserver.SetMailServer(mockMailServer)
 
 	userReq := &gameserver.User{Email: "test@example.com", Password: "password"}
 
@@ -122,7 +122,7 @@ func isErrorResponse(resp []byte, substring string) bool {
 
 func TestLoginAndCheckHandler(t *testing.T) {
 	mockMailServer := &MockEmailSender{}
-	gameserver.InitEmailServer(mockMailServer)
+	gameserver.SetMailServer(mockMailServer)
 
 	userReq := &gameserver.User{
 		Email:    "test@example.com",
