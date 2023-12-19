@@ -153,13 +153,6 @@ func validateGameToken(gameID int, token Token) (PlayerType, Token) {
 	return InvalidPlayer, ""
 }
 
-type NewGameRequest struct {
-	Type          string `json:"type"`
-	WhiteUsername string `json:"white_username"`
-	BlackUsername string `json:"black_username"`
-	Public        bool   `json:"public"`
-}
-
 func getUserIDFromUsername(username string) (int, error) {
 	var userID int
 	err := db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
@@ -167,75 +160,6 @@ func getUserIDFromUsername(username string) (int, error) {
 		return -1, err
 	}
 	return userID, nil
-}
-
-type NewGame struct {
-	ID          int   `json:"id"`
-	WhiteToken  Token `json:"white_token"`
-	BlackToken  Token `json:"black_token"`
-	ViewerToken Token `json:"viewer_token"`
-}
-
-func createGame(request NewGameRequest) (*NewGame, error) {
-	var whiteToken, blackToken, viewerToken Token
-
-	if request.WhiteUsername != "" {
-		_, err := getUserIDFromUsername(request.WhiteUsername)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if request.BlackUsername != "" {
-		_, err := getUserIDFromUsername(request.BlackUsername)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	whiteToken = generateToken()
-	blackToken = generateToken()
-	if request.Public {
-		viewerToken = generateToken()
-	}
-
-	var whiteUserID, blackUserID int
-	var err error
-	if request.WhiteUsername == "" {
-		whiteUserID = -1
-	} else {
-		whiteUserID, err = getUserIDFromUsername(request.WhiteUsername)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if request.BlackUsername == "" {
-		blackUserID = -1
-	} else {
-		blackUserID, err = getUserIDFromUsername(request.BlackUsername)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	res, err := db.Exec(
-		"INSERT INTO games(type, white_user_id, black_user_id, white_token, black_token, viewer_token) VALUES(?, ?, ?, ?, ?, ?)",
-		request.Type, whiteUserID, blackUserID, whiteToken, blackToken, viewerToken)
-	if err != nil {
-		return nil, err
-	}
-
-	gameID, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
-	return &NewGame{
-		ID:          int(gameID),
-		WhiteToken:  whiteToken,
-		BlackToken:  blackToken,
-		ViewerToken: viewerToken,
-	}, nil
 }
 
 func markGameAsFinished(gameID int, result string) error {
@@ -294,55 +218,6 @@ func listUsers() ([]*User, error) {
 	return users, nil
 }
 
-type Game struct {
-	ID           int    `json:"id"`
-	Type         string `json:"type"`
-	WhiteUser    string `json:"white_user"`
-	BlackUser    string `json:"black_user"`
-	WhiteToken   string `json:"white_token"`
-	BlackToken   string `json:"black_token"`
-	ViewerToken  string `json:"viewer_token"`
-	GameOver     bool   `json:"game_over"`
-	GameResult   string `json:"game_result"`
-	CreationTime int    `json:"creation_time"`
-	NumActions   int    `json:"num_actions"`
-	GameRecord   string `json:"game_record"`
-}
-
-func getGame(id int) (*Game, error) {
-	query := `
-		SELECT 
-			g.id, g.type, u1.username, u2.username, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time,
-			COUNT(a.action_num) AS num_actions, 
-			COALESCE(GROUP_CONCAT(a.action ORDER BY a.creation_time, ', '), '')  AS game_record
-		FROM games g
-		LEFT JOIN users u1 ON g.white_user_id = u1.id
-		LEFT JOIN users u2 ON g.black_user_id = u2.id
-		LEFT JOIN actions a ON g.id = a.game_id
-		WHERE g.id = ?
-		GROUP BY g.id
-	`
-	var game Game
-	var whiteUser, blackUser sql.NullString
-	var creationTime float64
-
-	err := db.QueryRow(query, id).Scan(&game.ID, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
-		&game.GameOver, &game.GameResult, &creationTime, &game.NumActions, &game.GameRecord)
-	if err != nil {
-		return nil, err
-	}
-	game.CreationTime = int(creationTime)
-
-	if whiteUser.Valid {
-		game.WhiteUser = whiteUser.String
-	}
-	if blackUser.Valid {
-		game.BlackUser = blackUser.String
-	}
-
-	return &game, nil
-}
-
 func listGames() ([]Game, error) {
 	query := `
 		SELECT 
@@ -374,10 +249,10 @@ func listGames() ([]Game, error) {
 		game.CreationTime = int(creationTime)
 
 		if whiteUser.Valid {
-			game.WhiteUser = whiteUser.String
+			game.WhitePlayer = whiteUser.String
 		}
 		if blackUser.Valid {
-			game.BlackUser = blackUser.String
+			game.BlackPlayer = blackUser.String
 		}
 
 		games = append(games, game)
