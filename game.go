@@ -15,7 +15,7 @@ import (
 // WebSockets
 func RegisterGameHandlers(prefix string) {
 	http.HandleFunc(prefix+"/ws", EnableCors(handleWebSocket))
-	http.HandleFunc(prefix+"/newgame", EnableCors(newGameHandler))
+	http.HandleFunc(prefix+"/create", EnableCors(createGameHandler))
 }
 
 type Conn struct {
@@ -216,7 +216,7 @@ func broadcast(gameID int, action WebSocketMessage) {
 // Game
 
 type Game struct {
-	ID           int    `json:"id"`
+	Id           int    `json:"id"`
 	Type         string `json:"type"`
 	WhitePlayer  string `json:"white_user"`
 	BlackPlayer  string `json:"black_user"`
@@ -238,13 +238,14 @@ func GetGameWithId(id int) (*Game, error) {
 		FROM games g
 		LEFT JOIN users u1 ON g.white_user_id = u1.id
 		LEFT JOIN users u2 ON g.black_user_id = u2.id
+		WHERE g.id = ?
 		GROUP BY g.id
 	`
 	var game Game
 	var whiteUser, blackUser sql.NullString
 	var creationTime float64
 
-	err := db.QueryRow(query, id).Scan(&game.ID, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
+	err := db.QueryRow(query, id).Scan(&game.Id, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
 		&game.GameOver, &game.GameResult, &creationTime)
 	if err != nil {
 		return nil, err
@@ -353,6 +354,7 @@ func CreateGame(request *Game) (*Game, error) {
 	for i, action := range actions {
 		_, err := tx.Exec("INSERT INTO actions(game_id, action_num, action) VALUES(?, ?, ?)", gameID, i+1, action)
 		if err != nil {
+			log.Printf("error inserting action %d: %v", i+1, err)
 			tx.Rollback()
 			return nil, err
 		}
@@ -364,7 +366,7 @@ func CreateGame(request *Game) (*Game, error) {
 	return GetGameWithId(int(gameID))
 }
 
-func newGameHandler(w http.ResponseWriter, r *http.Request) {
+func createGameHandler(w http.ResponseWriter, r *http.Request) {
 	// extract from request body
 	var request Game
 	err := json.NewDecoder(r.Body).Decode(&request)

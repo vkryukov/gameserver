@@ -242,7 +242,7 @@ func listGames() ([]Game, error) {
 		var whiteUser, blackUser sql.NullString
 		var creationTime float64
 
-		if err := rows.Scan(&game.ID, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
+		if err := rows.Scan(&game.Id, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
 			&game.GameOver, &game.GameResult, &creationTime, &game.NumActions, &game.GameRecord); err != nil {
 			return nil, err
 		}

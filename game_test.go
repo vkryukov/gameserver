@@ -1,6 +1,7 @@
 package gameserver_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/vkryukov/gameserver"
@@ -42,7 +43,6 @@ func TestGameCreation(t *testing.T) {
 	game, err = gameserver.CreateGame(&gameserver.Game{
 		Type:        "Gipf",
 		WhitePlayer: screenName,
-		BlackPlayer: "",
 		Public:      false,
 		GameRecord:  "a b c d e",
 	})
@@ -53,4 +53,23 @@ func TestGameCreation(t *testing.T) {
 		t.Fatalf("Created game has wrong game record: %s", game.GameRecord)
 	}
 
+	// Test 3: same but with a http handler
+	resp := postObject(t, "http://localhost:1234/game/create", &gameserver.Game{
+		Type:        "Gipf",
+		BlackPlayer: screenName,
+		Public:      true,
+		GameRecord:  "h i j k",
+	})
+	var game2 gameserver.Game
+
+	err = json.Unmarshal(resp, &game2)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
+	}
+	if game.Id == game2.Id {
+		t.Fatalf("Created game has same id: %d", game.Id)
+	}
+	if game2.GameRecord != "h i j k" || game2.NumActions != 4 || game2.Public != true || game2.ViewerToken == "" {
+		t.Fatalf("Created game has wrong game record: %s", mustPrettyPrint(t, game2))
+	}
 }
