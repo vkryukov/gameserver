@@ -218,8 +218,8 @@ func broadcast(gameID int, action WebSocketMessage) {
 type Game struct {
 	Id           int    `json:"id"`
 	Type         string `json:"type"`
-	WhitePlayer  string `json:"white_user"`
-	BlackPlayer  string `json:"black_user"`
+	WhitePlayer  string `json:"white_player"`
+	BlackPlayer  string `json:"black_player"`
 	WhiteToken   Token  `json:"white_token"`
 	BlackToken   Token  `json:"black_token"`
 	ViewerToken  Token  `json:"viewer_token"`

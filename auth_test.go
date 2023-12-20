@@ -168,3 +168,5 @@ func TestEmailVerification(t *testing.T) {
 	}
 
 }
+
+// TODO: Check that login/check responses do not leak the password hash or the user id.
