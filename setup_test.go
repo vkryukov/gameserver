@@ -54,6 +54,7 @@ func teardown() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("Server Shutdown: %v", err)
 	}
+	gameserver.CloseDB()
 }
 
 func mustRegisterUser(t *testing.T, email string, password string, screenName string) *gameserver.User {
