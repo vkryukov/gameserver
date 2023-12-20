@@ -382,5 +382,13 @@ func createGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// We only want to return the tokens for the player who created the game and possibly the viewer token.
+	if request.BlackPlayer == "" {
+		newGame.BlackToken = ""
+	}
+	if request.WhitePlayer == "" {
+		newGame.WhiteToken = ""
+	}
+
 	writeJSONResponse(w, newGame)
 }

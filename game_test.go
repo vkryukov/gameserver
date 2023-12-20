@@ -7,8 +7,18 @@ import (
 	"github.com/vkryukov/gameserver"
 )
 
-func TestGameCreation(t *testing.T) {
+func createGameWithRequest(t *testing.T, req *gameserver.Game) *gameserver.Game {
+	resp := postObject(t, "http://localhost:1234/game/create", req)
+	var game gameserver.Game
 
+	err := json.Unmarshal(resp, &game)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
+	}
+	return &game
+}
+
+func TestGameCreation(t *testing.T) {
 	email := "test-game@example.com"
 	password := "game-user-password"
 	screenName := "Test Game User"
@@ -54,22 +64,30 @@ func TestGameCreation(t *testing.T) {
 	}
 
 	// Test 3: same but with a http handler
-	resp := postObject(t, "http://localhost:1234/game/create", &gameserver.Game{
+	game2 := createGameWithRequest(t, &gameserver.Game{
 		Type:        "Gipf",
 		BlackPlayer: screenName,
 		Public:      true,
 		GameRecord:  "h i j k",
 	})
-	var game2 gameserver.Game
-
-	err = json.Unmarshal(resp, &game2)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
-	}
 	if game.Id == game2.Id {
 		t.Fatalf("Created game has same id: %d", game.Id)
 	}
 	if game2.GameRecord != "h i j k" || game2.NumActions != 4 || game2.Public != true || game2.ViewerToken == "" {
 		t.Fatalf("Created game has wrong game record: %s", mustPrettyPrint(t, game2))
 	}
+	if game2.WhiteToken != "" {
+		t.Fatalf("Response to a black player has white token visible: %q", game2.WhiteToken)
+	}
+
+	// Test 4: a game created by white player doesn't see a black token
+	game3 := createGameWithRequest(t, &gameserver.Game{
+		Type:        "Gipf",
+		WhitePlayer: screenName,
+		Public:      true,
+	})
+	if game3.BlackToken != "" {
+		t.Fatalf("Response to a white player has black token visible: %q", game3.BlackToken)
+	}
+
 }
