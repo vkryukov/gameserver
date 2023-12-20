@@ -375,14 +375,14 @@ func createGameHandler(w http.ResponseWriter, r *http.Request) {
 	var request Game
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendError(w, serverError("incorrect request", err))
 		return
 	}
 
 	// create new game
 	newGame, err := CreateGame(&request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sendError(w, serverError("cannot create a new game", err))
 		return
 	}
 

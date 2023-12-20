@@ -101,4 +101,20 @@ func TestGameCreation(t *testing.T) {
 		t.Fatalf("Expected error when creating game with the same player, got nil")
 	}
 
+	// Test 6: creating a game with a non-existing player fails
+	resp := postObject(t, "http://localhost:1234/game/create", &gameserver.Game{
+		Type:        "Gipf",
+		WhitePlayer: "non-existing",
+		Public:      false,
+	})
+	if !isErrorResponse(resp, "cannot create") {
+		t.Fatalf("Expected error when creating game with a non-existing player, got %s", resp)
+	}
+
+	// Test 7: create a game with nonsense request fails
+	resp = postRequestWithBody(t, "http://localhost:1234/game/create", []byte("nonsense"))
+	if !isErrorResponse(resp, "incorrect request") {
+		t.Fatalf("Expected error when creating game with a nonsense request, got %s", resp)
+	}
+
 }
