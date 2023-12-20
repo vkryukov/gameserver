@@ -153,9 +153,9 @@ func validateGameToken(gameID int, token Token) (PlayerType, Token) {
 	return InvalidPlayer, ""
 }
 
-func getUserIDFromUsername(username string) (int, error) {
+func getUserIDFromScreenName(screenName string) (int, error) {
 	var userID int
-	err := db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	err := db.QueryRow("SELECT id FROM users WHERE screen_name = ?", screenName).Scan(&userID)
 	if err != nil {
 		return -1, err
 	}

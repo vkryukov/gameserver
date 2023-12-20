@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -14,8 +15,7 @@ import (
 // WebSockets
 func RegisterGameHandlers(prefix string) {
 	http.HandleFunc(prefix+"/ws", EnableCors(handleWebSocket))
-	log.Printf("Handling websocket connections at %s%s/ws", baseURL, prefix)
-	http.HandleFunc(prefix+"/newgame", EnableCors(createNewGameHandler))
+	http.HandleFunc(prefix+"/newgame", EnableCors(newGameHandler))
 }
 
 type Conn struct {
@@ -96,7 +96,7 @@ func processMessage(conn Conn, message WebSocketMessage, playerType PlayerType, 
 	switch message.Type {
 	case "Join":
 		log.Printf("Player %s joined game %d with token %s", playerType, message.GameID, message.Token)
-		game, err := GetGameById(message.GameID)
+		game, err := GetGameWithId(message.GameID)
 		if handleError(conn, message.GameID, err) {
 			return
 		}
@@ -231,17 +231,13 @@ type Game struct {
 	Public       bool   `json:"public"`
 }
 
-func GetGameById(id int) (*Game, error) {
+func GetGameWithId(id int) (*Game, error) {
 	query := `
 		SELECT 
-			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time, g.public,
-			COUNT(a.action_num) AS num_actions, 
-			COALESCE(GROUP_CONCAT(a.action ORDER BY a.creation_time, ' '), '')  AS game_record
+			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time
 		FROM games g
 		LEFT JOIN users u1 ON g.white_user_id = u1.id
 		LEFT JOIN users u2 ON g.black_user_id = u2.id
-		LEFT JOIN actions a ON g.id = a.game_id
-		WHERE g.id = ?
 		GROUP BY g.id
 	`
 	var game Game
@@ -249,11 +245,14 @@ func GetGameById(id int) (*Game, error) {
 	var creationTime float64
 
 	err := db.QueryRow(query, id).Scan(&game.ID, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
-		&game.GameOver, &game.GameResult, &creationTime, &game.Public, &game.NumActions, &game.GameRecord)
+		&game.GameOver, &game.GameResult, &creationTime)
 	if err != nil {
 		return nil, err
 	}
 	game.CreationTime = int(creationTime)
+	if game.ViewerToken != "" {
+		game.Public = true
+	}
 
 	if whiteUser.Valid {
 		game.WhitePlayer = whiteUser.String
@@ -262,21 +261,48 @@ func GetGameById(id int) (*Game, error) {
 		game.BlackPlayer = blackUser.String
 	}
 
+	// Get the game record
+	gameRecord, numActions, err := GetGameRecord(id)
+	if err != nil {
+		return nil, err
+	}
+	game.GameRecord = gameRecord
+	game.NumActions = numActions
+
 	return &game, nil
+}
+
+func GetGameRecord(gameID int) (string, int, error) {
+	var actions []string
+	rows, err := db.Query("SELECT action FROM actions WHERE game_id = ? ORDER BY action_num", gameID)
+	if err != nil {
+		return "", 0, err
+	}
+	for rows.Next() {
+		var action string
+		if err := rows.Scan(&action); err != nil {
+			return "", 0, err
+		}
+		actions = append(actions, action)
+	}
+	if err := rows.Close(); err != nil {
+		return "", 0, err
+	}
+	return strings.Join(actions, " "), len(actions), nil
 }
 
 func CreateGame(request *Game) (*Game, error) {
 	var whiteToken, blackToken, viewerToken Token
 
 	if request.WhitePlayer != "" {
-		_, err := getUserIDFromUsername(request.WhitePlayer)
+		_, err := getUserIDFromScreenName(request.WhitePlayer)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if request.BlackPlayer != "" {
-		_, err := getUserIDFromUsername(request.BlackPlayer)
+		_, err := getUserIDFromScreenName(request.BlackPlayer)
 		if err != nil {
 			return nil, err
 		}
@@ -293,7 +319,7 @@ func CreateGame(request *Game) (*Game, error) {
 	if request.WhitePlayer == "" {
 		whiteUserID = -1
 	} else {
-		whiteUserID, err = getUserIDFromUsername(request.WhitePlayer)
+		whiteUserID, err = getUserIDFromScreenName(request.WhitePlayer)
 		if err != nil {
 			return nil, err
 		}
@@ -301,37 +327,44 @@ func CreateGame(request *Game) (*Game, error) {
 	if request.BlackPlayer == "" {
 		blackUserID = -1
 	} else {
-		blackUserID, err = getUserIDFromUsername(request.BlackPlayer)
+		blackUserID, err = getUserIDFromScreenName(request.BlackPlayer)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	res, err := db.Exec(
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := tx.Exec(
 		"INSERT INTO games(type, white_user_id, black_user_id, white_token, black_token, viewer_token) VALUES(?, ?, ?, ?, ?, ?)",
 		request.Type, whiteUserID, blackUserID, whiteToken, blackToken, viewerToken)
 	if err != nil {
 		return nil, err
 	}
-
 	gameID, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Game{
-		ID:          int(gameID),
-		WhiteToken:  whiteToken,
-		BlackToken:  blackToken,
-		ViewerToken: viewerToken,
-		WhitePlayer: request.WhitePlayer,
-		BlackPlayer: request.BlackPlayer,
-		Type:        request.Type,
-		Public:      request.Public,
-	}, nil
+	actions := strings.Split(request.GameRecord, " ")
+	for i, action := range actions {
+		_, err := tx.Exec("INSERT INTO actions(game_id, action_num, action) VALUES(?, ?, ?)", gameID, i+1, action)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return GetGameWithId(int(gameID))
 }
 
-func createNewGameHandler(w http.ResponseWriter, r *http.Request) {
+func newGameHandler(w http.ResponseWriter, r *http.Request) {
 	// extract from request body
 	var request Game
 	err := json.NewDecoder(r.Body).Decode(&request)
