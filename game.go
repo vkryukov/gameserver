@@ -309,6 +309,10 @@ func CreateGame(request *Game) (*Game, error) {
 		}
 	}
 
+	if request.WhitePlayer == request.BlackPlayer {
+		return nil, fmt.Errorf("white and black players cannot be the same")
+	}
+
 	whiteToken = generateToken()
 	blackToken = generateToken()
 	if request.Public {

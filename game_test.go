@@ -90,4 +90,15 @@ func TestGameCreation(t *testing.T) {
 		t.Fatalf("Response to a white player has black token visible: %q", game3.BlackToken)
 	}
 
+	// Test 5: cannot create a game with the same player
+	_, err = gameserver.CreateGame(&gameserver.Game{
+		Type:        "Gipf",
+		WhitePlayer: screenName,
+		BlackPlayer: screenName,
+		Public:      false,
+	})
+	if err == nil {
+		t.Fatalf("Expected error when creating game with the same player, got nil")
+	}
+
 }
