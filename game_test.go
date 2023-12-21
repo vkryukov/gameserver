@@ -132,7 +132,7 @@ func TestGameCreation(t *testing.T) {
 		WhiteToken:  "wrong-token",
 		Public:      false,
 	})
-	if !isErrorResponse(resp, "incorrect token") {
+	if !isErrorResponse(resp, "cannot create") {
 		t.Fatalf("Expected error when creating game with a wrong token, got %s", resp)
 	}
 
@@ -143,7 +143,7 @@ func TestGameCreation(t *testing.T) {
 		BlackToken:  user.Token,
 		Public:      false,
 	})
-	if !isErrorResponse(resp, "incorrect token") {
+	if !isErrorResponse(resp, "cannot create") {
 		t.Fatalf("Expected error when creating game with a wrong token, got %s", resp)
 	}
 
@@ -160,17 +160,20 @@ func TestListingUserGames(t *testing.T) {
 	game1 := createGameWithRequest(t, &gameserver.Game{
 		Type:        "Gipf",
 		WhitePlayer: screenName,
+		WhiteToken:  user.Token,
 		Public:      false,
 	})
 	game2 := createGameWithRequest(t, &gameserver.Game{
 		Type:        "Standard Gipf",
 		BlackPlayer: screenName,
+		BlackToken:  user.Token,
 		Public:      false,
 		GameRecord:  "one two three",
 	})
 	game3 := createGameWithRequest(t, &gameserver.Game{
 		Type:        "Basic Gipf",
 		WhitePlayer: screenName,
+		WhiteToken:  user.Token,
 		Public:      true,
 	})
 

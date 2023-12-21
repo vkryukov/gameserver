@@ -36,7 +36,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		// Allow connections with a null origin (for local file testing)
 		origin := r.Header.Get("Origin")
-		log.Printf("Origin in WS upgrader: %s", origin)
 		return origin == "" || origin == "null" || allowedOrigins[origin]
 	},
 }
@@ -49,14 +48,13 @@ type WebSocketMessage struct {
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling websocket connection")
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade the connection: %v", err)
 		return
 	}
 	conn := Conn{c}
-	log.Printf("Upgraded connection %s", conn)
+	log.Printf("Established websocket connection %s", conn)
 	go listenForWebSocketMessages(conn)
 }
 
@@ -301,12 +299,18 @@ func CreateGame(request *Game) (*Game, error) {
 		if err != nil {
 			return nil, err
 		}
+		if tokenMismatchUser(request.WhitePlayer, request.WhiteToken) {
+			return nil, fmt.Errorf("incorrect token for white player")
+		}
 	}
 
 	if request.BlackPlayer != "" {
 		_, err := getUserIDFromScreenName(request.BlackPlayer)
 		if err != nil {
 			return nil, err
+		}
+		if tokenMismatchUser(request.BlackPlayer, request.BlackToken) {
+			return nil, fmt.Errorf("incorrect token for black player")
 		}
 	}
 
@@ -369,6 +373,14 @@ func CreateGame(request *Game) (*Game, error) {
 	}
 
 	return GetGameWithId(int(gameID))
+}
+
+func tokenMismatchUser(screenName string, token Token) bool {
+	user, err := GetUserWithToken(token)
+	if err != nil {
+		return true
+	}
+	return user.ScreenName != screenName
 }
 
 func createGameHandler(w http.ResponseWriter, r *http.Request) {
