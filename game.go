@@ -422,6 +422,16 @@ func listGamesByUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// We only want to return the tokens for the player who created the game and possibly the viewer token.
+	for _, game := range games {
+		if game.WhitePlayer != user.ScreenName {
+			game.WhiteToken = ""
+		}
+		if game.BlackPlayer != user.ScreenName {
+			game.BlackToken = ""
+		}
+	}
+
 	writeJSONResponse(w, games)
 }
 

@@ -161,4 +161,18 @@ func TestListingUserGames(t *testing.T) {
 	if games[0].Id != game1.Id || games[1].Id != game2.Id || games[2].Id != game3.Id {
 		t.Fatalf("Expected games %d, %d, %d, got %d, %d, %d", game1.Id, game2.Id, game3.Id, games[0].Id, games[1].Id, games[2].Id)
 	}
+
+	// Test 2: we should have precisely 4 non-empty tokens: 3 for the user and 1 for the viewer
+	if games[0].WhiteToken == "" || games[1].BlackToken == "" || games[2].WhiteToken == "" {
+		t.Fatalf("Expected non-empty tokens for the user, got %q, %q, %q", games[0].WhiteToken, games[1].BlackToken, games[2].WhiteToken)
+	}
+	if games[2].ViewerToken == "" {
+		t.Fatalf("Expected non-empty viewer token for game 2")
+	}
+	if games[0].ViewerToken != "" || games[1].ViewerToken != "" {
+		t.Fatalf("Expected empty viewer tokens for games 0 and 1")
+	}
+	if games[0].BlackToken != "" || games[1].WhiteToken != "" || games[2].BlackToken != "" {
+		t.Fatalf("Expected empty other player tokens for games 0, 1 and 2")
+	}
 }
