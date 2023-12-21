@@ -26,10 +26,12 @@ func TestGameCreation(t *testing.T) {
 
 	// Test 1: can create a game with a valid player
 	mustRegisterUser(t, email, password, screenName)
+	user := mustAuthenticateUser(t, email, password)
 
 	game, err := gameserver.CreateGame(&gameserver.Game{
 		Type:        "Gipf",
 		WhitePlayer: screenName,
+		WhiteToken:  user.Token,
 		BlackPlayer: "",
 		Public:      false,
 	})
@@ -54,6 +56,7 @@ func TestGameCreation(t *testing.T) {
 	game, err = gameserver.CreateGame(&gameserver.Game{
 		Type:        "Gipf",
 		WhitePlayer: screenName,
+		WhiteToken:  user.Token,
 		Public:      false,
 		GameRecord:  "a b c d e",
 	})
@@ -68,6 +71,7 @@ func TestGameCreation(t *testing.T) {
 	game2 := createGameWithRequest(t, &gameserver.Game{
 		Type:        "Gipf",
 		BlackPlayer: screenName,
+		BlackToken:  user.Token,
 		Public:      true,
 		GameRecord:  "h i j k",
 	})
@@ -85,6 +89,7 @@ func TestGameCreation(t *testing.T) {
 	game3 := createGameWithRequest(t, &gameserver.Game{
 		Type:        "Gipf",
 		WhitePlayer: screenName,
+		WhiteToken:  user.Token,
 		Public:      true,
 	})
 	if game3.BlackToken != "" {
@@ -96,6 +101,7 @@ func TestGameCreation(t *testing.T) {
 		Type:        "Gipf",
 		WhitePlayer: screenName,
 		BlackPlayer: screenName,
+		WhiteToken:  user.Token,
 		Public:      false,
 	})
 	if err == nil {
@@ -106,6 +112,7 @@ func TestGameCreation(t *testing.T) {
 	resp := postObject(t, "http://localhost:1234/game/create", &gameserver.Game{
 		Type:        "Gipf",
 		WhitePlayer: "non-existing",
+		WhiteToken:  user.Token,
 		Public:      false,
 	})
 	if !isErrorResponse(resp, "cannot create") {
@@ -116,6 +123,28 @@ func TestGameCreation(t *testing.T) {
 	resp = postRequestWithBody(t, "http://localhost:1234/game/create", []byte("nonsense"))
 	if !isErrorResponse(resp, "incorrect request") {
 		t.Fatalf("Expected error when creating game with a nonsense request, got %s", resp)
+	}
+
+	// Test 8: create a game with a wrong token fails
+	resp = postObject(t, "http://localhost:1234/game/create", &gameserver.Game{
+		Type:        "Gipf",
+		WhitePlayer: screenName,
+		WhiteToken:  "wrong-token",
+		Public:      false,
+	})
+	if !isErrorResponse(resp, "incorrect token") {
+		t.Fatalf("Expected error when creating game with a wrong token, got %s", resp)
+	}
+
+	// Test 9: create a game with a correct token but wrong player fails
+	resp = postObject(t, "http://localhost:1234/game/create", &gameserver.Game{
+		Type:        "Gipf",
+		WhitePlayer: screenName,
+		BlackToken:  user.Token,
+		Public:      false,
+	})
+	if !isErrorResponse(resp, "incorrect token") {
+		t.Fatalf("Expected error when creating game with a wrong token, got %s", resp)
 	}
 
 }
