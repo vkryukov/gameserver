@@ -16,6 +16,7 @@ import (
 func RegisterGameHandlers(prefix string) {
 	http.HandleFunc(prefix+"/ws", EnableCors(handleWebSocket))
 	http.HandleFunc(prefix+"/create", EnableCors(createGameHandler))
+	http.HandleFunc(prefix+"/list", EnableCors(listGamesByUserHandler))
 }
 
 type Conn struct {
@@ -395,4 +396,76 @@ func createGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSONResponse(w, newGame)
+}
+
+func listGamesByUserHandler(w http.ResponseWriter, r *http.Request) {
+	// extract from request body
+	var request struct {
+		Token Token `json:"token"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		sendError(w, serverError("incorrect request", err))
+		return
+	}
+
+	user, err := GetUserWithToken(request.Token)
+	if err != nil {
+		sendError(w, serverError("incorrect token", err))
+		return
+	}
+
+	// get games
+	games, err := listGamesByUser(user)
+	if err != nil {
+		sendError(w, serverError("cannot list games", err))
+		return
+	}
+
+	writeJSONResponse(w, games)
+}
+
+func listGamesByUser(user *User) ([]*Game, error) {
+	query := `
+		SELECT 
+			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time
+		FROM games g
+		LEFT JOIN users u1 ON g.white_user_id = u1.id
+		LEFT JOIN users u2 ON g.black_user_id = u2.id
+		WHERE g.white_user_id = ? OR g.black_user_id = ?
+		GROUP BY g.id
+	`
+	rows, err := db.Query(query, user.Id, user.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var games []*Game
+	for rows.Next() {
+		var game Game
+		var whiteUser, blackUser sql.NullString
+		var creationTime float64
+
+		err := rows.Scan(&game.Id, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
+			&game.GameOver, &game.GameResult, &creationTime)
+		if err != nil {
+			return nil, err
+		}
+		game.CreationTime = int(creationTime)
+		if game.ViewerToken != "" {
+			game.Public = true
+		}
+
+		if whiteUser.Valid {
+			game.WhitePlayer = whiteUser.String
+		}
+		if blackUser.Valid {
+			game.BlackPlayer = blackUser.String
+		}
+
+		games = append(games, &game)
+	}
+
+	return games, nil
 }

@@ -2,6 +2,7 @@ package gameserver_test
 
 import (
 	"encoding/json"
+	"log"
 	"testing"
 
 	"github.com/vkryukov/gameserver"
@@ -117,4 +118,47 @@ func TestGameCreation(t *testing.T) {
 		t.Fatalf("Expected error when creating game with a nonsense request, got %s", resp)
 	}
 
+}
+
+func TestListingUserGames(t *testing.T) {
+	email := "user-listing-games@example.com"
+	password := "user-listing-games-password"
+	screenName := "User Listing Games"
+
+	mustRegisterUser(t, email, password, screenName)
+	user := mustAuthenticateUser(t, email, password)
+
+	game1 := createGameWithRequest(t, &gameserver.Game{
+		Type:        "Gipf",
+		WhitePlayer: screenName,
+		Public:      false,
+	})
+	game2 := createGameWithRequest(t, &gameserver.Game{
+		Type:        "Standard Gipf",
+		BlackPlayer: screenName,
+		Public:      false,
+		GameRecord:  "one two three",
+	})
+	game3 := createGameWithRequest(t, &gameserver.Game{
+		Type:        "Basic Gipf",
+		WhitePlayer: screenName,
+		Public:      true,
+	})
+
+	// Test1: a list of active games contains all games
+	log.Printf("token: %q", user.Token)
+	resp := postObject(t, "http://localhost:1234/game/list", struct{ Token gameserver.Token }{
+		Token: user.Token,
+	})
+	var games []*gameserver.Game
+	err := json.Unmarshal(resp, &games)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
+	}
+	if len(games) != 3 {
+		t.Fatalf("Expected 3 games, got %d", len(games))
+	}
+	if games[0].Id != game1.Id || games[1].Id != game2.Id || games[2].Id != game3.Id {
+		t.Fatalf("Expected games %d, %d, %d, got %d, %d, %d", game1.Id, game2.Id, game3.Id, games[0].Id, games[1].Id, games[2].Id)
+	}
 }

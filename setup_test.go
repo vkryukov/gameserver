@@ -57,25 +57,6 @@ func teardown() {
 	gameserver.CloseDB()
 }
 
-func mustRegisterUser(t *testing.T, email string, password string, screenName string) *gameserver.User {
-	userReq := &gameserver.User{Email: email, Password: password, ScreenName: screenName}
-	_, err := gameserver.RegisterUser(userReq)
-	if err != nil {
-		t.Fatalf("Failed to register user: %v", err)
-	}
-	user, err := gameserver.GetUserWithEmail(email)
-	if err != nil {
-		t.Fatalf("Failed to get user: %v", err)
-	}
-	if user.Email != email {
-		t.Fatalf("Registered user has wrong email: %s", user.Email)
-	}
-	if user.EmailVerified {
-		t.Fatalf("Newly registered user has a verified email")
-	}
-	return user
-}
-
 func postRequestWithBody(t *testing.T, url string, body []byte) []byte {
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {

@@ -14,6 +14,41 @@ var testEmail = "test-register@example.com"
 var testPassword = "register-user-password"
 var testScreenName = "Test Register User"
 
+func mustRegisterUser(t *testing.T, email string, password string, screenName string) *gameserver.User {
+	userReq := &gameserver.User{Email: email, Password: password, ScreenName: screenName}
+	_, err := gameserver.RegisterUser(userReq)
+	if err != nil {
+		t.Fatalf("Failed to register user: %v", err)
+	}
+	user, err := gameserver.GetUserWithEmail(email)
+	if err != nil {
+		t.Fatalf("Failed to get user: %v", err)
+	}
+	if user.Email != email {
+		t.Fatalf("Registered user has wrong email: %s", user.Email)
+	}
+	if user.EmailVerified {
+		t.Fatalf("Newly registered user has a verified email")
+	}
+	return user
+}
+
+func mustAuthenticateUser(t *testing.T, email string, password string) *gameserver.User {
+	resp := postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: email, Password: password})
+	var user gameserver.User
+	err := json.Unmarshal(resp, &user)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if user.Email != email {
+		t.Fatalf("Authenticated user has wrong email: %s", user.Email)
+	}
+	if user.Token == "" {
+		t.Fatalf("Authenticated user has empty token")
+	}
+	return &user
+}
+
 func TestBasicRegistrationAndAuthentication(t *testing.T) {
 	testUser := mustRegisterUser(t, testEmail, testPassword, testScreenName)
 	// Test 1: after registering a user, it can be found with getUserWithEmail
@@ -34,13 +69,7 @@ func TestBasicRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	// Test 4: after registering a user, it can be authenticated with the right password
-	authenticatedUser, err := gameserver.AuthenticateUser(&gameserver.User{Email: testEmail, Password: testPassword})
-	if err != nil {
-		t.Fatalf("Failed to authenticate user: %v", err)
-	}
-	if authenticatedUser.Email != testEmail {
-		t.Fatalf("Authenticated user has wrong email: %s", authenticatedUser.Email)
-	}
+	mustAuthenticateUser(t, testEmail, testPassword)
 
 	// Test 5: after registering a user, it cannot be authenticated with the wrong password
 	_, err = gameserver.AuthenticateUser(&gameserver.User{Email: testEmail, Password: "wrong password"})
