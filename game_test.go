@@ -205,24 +205,33 @@ func TestListingUserGames(t *testing.T) {
 	}
 }
 
-func TestListPublicGames(t *testing.T) {
+func areNonEmptyTokens(games []*gameserver.Game) bool {
+	for _, game := range games {
+		if game.WhiteToken != "" || game.BlackToken != "" || game.ViewerToken != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func TestJoinableGames(t *testing.T) {
 	// Delete all the games currently in the database
 	err := gameserver.ExecuteSQL("DELETE FROM games")
 	if err != nil {
 		t.Fatalf("Failed to delete games: %v", err)
 	}
 
-	email1 := "user-public-games1@example.com"
-	password1 := "user-public-games1-password"
-	screenName1 := "User Public Games 1"
+	email1 := "user-joinable-games1@example.com"
+	password1 := "user-joinable-games1-password"
+	screenName1 := "User Joinable Games 1"
 
-	email2 := "user-public-games2@example.com"
-	password2 := "user-public-games2-password"
-	screenName2 := "User Public Games 2"
+	email2 := "user-joinable-games2@example.com"
+	password2 := "user-joinable-games2-password"
+	screenName2 := "User Joinable Games 2"
 
-	email3 := "user-public-games3@example.com"
-	password3 := "user-public-games3-password"
-	screenName3 := "User Public Games 3"
+	email3 := "user-joinable-games3@example.com"
+	password3 := "user-joinable-games3-password"
+	screenName3 := "User Joinable Games 3"
 
 	user1 := mustRegisterAndAuthenticateUser(t, email1, password1, screenName1)
 	user2 := mustRegisterAndAuthenticateUser(t, email2, password2, screenName2)
@@ -251,17 +260,26 @@ func TestListPublicGames(t *testing.T) {
 	if len(games) != 4 {
 		t.Fatalf("Expected 4 public games, got %d", len(games))
 	}
+	if areNonEmptyTokens(games) {
+		t.Fatalf("Expected empty tokens for all games, got %s", mustPrettyPrint(t, games))
+	}
 
 	// Test 2: user2 sees 3 public games by other users
 	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user2.Token}, &games)
 	if len(games) != 3 {
 		t.Fatalf("Expected 3 public games, got %d", len(games))
 	}
+	if areNonEmptyTokens(games) {
+		t.Fatalf("Expected empty tokens for all games, got %s", mustPrettyPrint(t, games))
+	}
 
 	// Test 3: user3 sees 5 public games by other users
 	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user3.Token}, &games)
 	if len(games) != 5 {
 		t.Fatalf("Expected 5 public games, got %d", len(games))
+	}
+	if areNonEmptyTokens(games) {
+		t.Fatalf("Expected empty tokens for all games, got %s", mustPrettyPrint(t, games))
 	}
 
 }
