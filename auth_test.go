@@ -34,12 +34,8 @@ func mustRegisterUser(t *testing.T, email string, password string, screenName st
 }
 
 func mustAuthenticateUser(t *testing.T, email string, password string) *gameserver.User {
-	resp := postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: email, Password: password})
 	var user gameserver.User
-	err := json.Unmarshal(resp, &user)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
-	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: email, Password: password}, &user)
 	if user.Email != email {
 		t.Fatalf("Authenticated user has wrong email: %s", user.Email)
 	}
@@ -47,6 +43,11 @@ func mustAuthenticateUser(t *testing.T, email string, password string) *gameserv
 		t.Fatalf("Authenticated user has empty token")
 	}
 	return &user
+}
+
+func mustRegisterAndAuthenticateUser(t *testing.T, email string, password string, screenName string) *gameserver.User {
+	mustRegisterUser(t, email, password, screenName)
+	return mustAuthenticateUser(t, email, password)
 }
 
 func TestBasicRegistrationAndAuthentication(t *testing.T) {
@@ -81,12 +82,8 @@ func TestBasicRegistrationAndAuthentication(t *testing.T) {
 
 func TestLoginAndCheckHandler(t *testing.T) {
 	// Test 1: registered user can be authenticated with right password
-	resp := postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmail, Password: testPassword})
 	var responseUser gameserver.User
-	err := json.Unmarshal(resp, &responseUser)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
-	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmail, Password: testPassword}, &responseUser)
 	if responseUser.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
 	}
@@ -104,11 +101,7 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	}
 
 	// Test 1.2: we can check the user with the token
-	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token="+string(user.Token), []byte(""))
-	err = json.Unmarshal(resp, &responseUser)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response '%s': %v", resp, err)
-	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/check?token="+string(user.Token), []byte(""), &responseUser)
 	if responseUser.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
 	}
@@ -117,7 +110,7 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	}
 
 	// Test 1.3: we can't check the user with the wrong token
-	resp = postRequestWithBody(t, "http://localhost:1234/auth/check?token=wrong-token", []byte(""))
+	resp := postRequestWithBody(t, "http://localhost:1234/auth/check?token=wrong-token", []byte(""))
 	if !isErrorResponse(resp, "token not found") {
 		t.Fatalf("Expected error when checking user with wrong token, got '%s'", resp)
 	}

@@ -28,3 +28,8 @@ func handleListGames(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSONResponse(w, games)
 }
+
+func ExecuteSQL(sql string, args ...interface{}) error {
+	_, err := db.Exec(sql, args...)
+	return err
+}

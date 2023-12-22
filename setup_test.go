@@ -81,6 +81,14 @@ func postObject(t *testing.T, url string, obj any) []byte {
 	return postRequestWithBody(t, url, body)
 }
 
+func mustDecodeRequestWithObject(t *testing.T, url string, obj any, target any) {
+	resp := postObject(t, url, obj)
+	err := json.Unmarshal(resp, target)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
+	}
+}
+
 type errorResponse struct {
 	Error string `json:"error"`
 }

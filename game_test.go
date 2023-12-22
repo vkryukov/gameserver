@@ -1,21 +1,14 @@
 package gameserver_test
 
 import (
-	"encoding/json"
-	"log"
 	"testing"
 
 	"github.com/vkryukov/gameserver"
 )
 
 func createGameWithRequest(t *testing.T, req *gameserver.Game) *gameserver.Game {
-	resp := postObject(t, "http://localhost:1234/game/create", req)
 	var game gameserver.Game
-
-	err := json.Unmarshal(resp, &game)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
-	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/create", req, &game)
 	return &game
 }
 
@@ -25,8 +18,7 @@ func TestGameCreation(t *testing.T) {
 	screenName := "Test Game User"
 
 	// Test 1: can create a game with a valid player
-	mustRegisterUser(t, email, password, screenName)
-	user := mustAuthenticateUser(t, email, password)
+	user := mustRegisterAndAuthenticateUser(t, email, password, screenName)
 
 	game, err := gameserver.CreateGame(&gameserver.Game{
 		Type:        "Gipf",
@@ -83,6 +75,12 @@ func TestGameCreation(t *testing.T) {
 	}
 	if game2.WhiteToken != "" {
 		t.Fatalf("Response to a black player has white token visible: %q", game2.WhiteToken)
+	}
+	if game2.BlackToken == "" {
+		t.Fatalf("Response to a black player has no black token")
+	}
+	if game2.BlackToken == user.Token {
+		t.Fatalf("Response to a black player has the same black token as the user")
 	}
 
 	// Test 4: a game created by white player doesn't see a black token
@@ -149,44 +147,42 @@ func TestGameCreation(t *testing.T) {
 
 }
 
+func mustCreateGame(t *testing.T, user *gameserver.User, isWhite bool, public bool) *gameserver.Game {
+	gameReq := &gameserver.Game{
+		Type:   "Gipf",
+		Public: public,
+	}
+	if isWhite {
+		gameReq.WhitePlayer = user.ScreenName
+		gameReq.WhiteToken = user.Token
+	} else {
+		gameReq.BlackPlayer = user.ScreenName
+		gameReq.BlackToken = user.Token
+	}
+	game, err := gameserver.CreateGame(gameReq)
+	if err != nil {
+		t.Fatalf("Failed to create game: %v", err)
+	}
+	return game
+
+}
+
 func TestListingUserGames(t *testing.T) {
 	email := "user-listing-games@example.com"
 	password := "user-listing-games-password"
 	screenName := "User Listing Games"
 
-	mustRegisterUser(t, email, password, screenName)
-	user := mustAuthenticateUser(t, email, password)
+	user := mustRegisterAndAuthenticateUser(t, email, password, screenName)
 
-	game1 := createGameWithRequest(t, &gameserver.Game{
-		Type:        "Gipf",
-		WhitePlayer: screenName,
-		WhiteToken:  user.Token,
-		Public:      false,
-	})
-	game2 := createGameWithRequest(t, &gameserver.Game{
-		Type:        "Standard Gipf",
-		BlackPlayer: screenName,
-		BlackToken:  user.Token,
-		Public:      false,
-		GameRecord:  "one two three",
-	})
-	game3 := createGameWithRequest(t, &gameserver.Game{
-		Type:        "Basic Gipf",
-		WhitePlayer: screenName,
-		WhiteToken:  user.Token,
-		Public:      true,
-	})
+	game1 := mustCreateGame(t, user, true, false)
+	game2 := mustCreateGame(t, user, false, false)
+	game3 := mustCreateGame(t, user, true, true)
 
 	// Test1: a list of active games contains all games
-	log.Printf("token: %q", user.Token)
-	resp := postObject(t, "http://localhost:1234/game/list", struct{ Token gameserver.Token }{
-		Token: user.Token,
-	})
 	var games []*gameserver.Game
-	err := json.Unmarshal(resp, &games)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
-	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list", struct{ Token gameserver.Token }{
+		Token: user.Token,
+	}, &games)
 	if len(games) != 3 {
 		t.Fatalf("Expected 3 games, got %d", len(games))
 	}
@@ -207,4 +203,45 @@ func TestListingUserGames(t *testing.T) {
 	if games[0].BlackToken != "" || games[1].WhiteToken != "" || games[2].BlackToken != "" {
 		t.Fatalf("Expected empty other player tokens for games 0, 1 and 2")
 	}
+}
+
+func TestListPublicGames(t *testing.T) {
+	// Delete all the games currently in the database
+	err := gameserver.ExecuteSQL("DELETE FROM games")
+	if err != nil {
+		t.Fatalf("Failed to delete games: %v", err)
+	}
+
+	email1 := "user-public-games1@example.com"
+	password1 := "user-public-games1-password"
+	screenName1 := "User Public Games 1"
+
+	email2 := "user-public-games2@example.com"
+	password2 := "user-public-games2-password"
+	screenName2 := "User Public Games 2"
+
+	email3 := "user-public-games3@example.com"
+	password3 := "user-public-games3-password"
+	screenName3 := "User Public Games 3"
+
+	user1 := mustRegisterAndAuthenticateUser(t, email1, password1, screenName1)
+	user2 := mustRegisterAndAuthenticateUser(t, email2, password2, screenName2)
+	user3 := mustRegisterAndAuthenticateUser(t, email3, password3, screenName3)
+
+	// user1 has 2 public games
+	mustCreateGame(t, user1, true, false)
+	mustCreateGame(t, user1, false, true)
+	mustCreateGame(t, user1, true, true)
+
+	// user2 has 3 public games
+	mustCreateGame(t, user2, false, true)
+	mustCreateGame(t, user2, true, true)
+	mustCreateGame(t, user2, true, true)
+	mustCreateGame(t, user2, false, false)
+
+	// user3 has 1 public game
+	mustCreateGame(t, user3, false, true)
+	mustCreateGame(t, user3, false, false)
+	mustCreateGame(t, user3, true, false)
+
 }
