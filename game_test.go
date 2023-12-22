@@ -40,8 +40,8 @@ func TestGameCreation(t *testing.T) {
 	if game.WhiteToken == "" || game.BlackToken == "" {
 		t.Fatalf("Created game has an empty token: white/black/viewer: %q/%q", game.WhiteToken, game.BlackToken)
 	}
-	if game.ViewerToken != "" {
-		t.Fatalf("Created non-public game with a viewer token: %q", game.ViewerToken)
+	if game.ViewerToken == "" {
+		t.Fatalf("Created non-public game with an empty viewer token: %q", game.ViewerToken)
 	}
 
 	// Test 2: Can create a game with a starting position
@@ -70,7 +70,7 @@ func TestGameCreation(t *testing.T) {
 	if game.Id == game2.Id {
 		t.Fatalf("Created game has same id: %d", game.Id)
 	}
-	if game2.GameRecord != "h i j k" || game2.NumActions != 4 || game2.Public != true || game2.ViewerToken == "" {
+	if game2.GameRecord != "h i j k" || game2.NumActions != 4 || game2.Public != true || game2.ViewerToken != "" {
 		t.Fatalf("Created game has wrong game record: %s", mustPrettyPrint(t, game2))
 	}
 	if game2.WhiteToken != "" {
@@ -147,10 +147,10 @@ func TestGameCreation(t *testing.T) {
 
 }
 
-func mustCreateGame(t *testing.T, user *gameserver.User, isWhite bool, public bool) *gameserver.Game {
+func mustCreateGame(t *testing.T, user *gameserver.User, isWhite bool, isPublic bool) *gameserver.Game {
 	gameReq := &gameserver.Game{
 		Type:   "Gipf",
-		Public: public,
+		Public: isPublic,
 	}
 	if isWhite {
 		gameReq.WhitePlayer = user.ScreenName
@@ -190,15 +190,15 @@ func TestListingUserGames(t *testing.T) {
 		t.Fatalf("Expected games %d, %d, %d, got %d, %d, %d", game1.Id, game2.Id, game3.Id, games[0].Id, games[1].Id, games[2].Id)
 	}
 
-	// Test 2: we should have precisely 4 non-empty tokens: 3 for the user and 1 for the viewer
+	// Test 2: we should have precisely 4 non-empty tokens: 3 for the user and 2 for the viewers of non-public games
 	if games[0].WhiteToken == "" || games[1].BlackToken == "" || games[2].WhiteToken == "" {
 		t.Fatalf("Expected non-empty tokens for the user, got %q, %q, %q", games[0].WhiteToken, games[1].BlackToken, games[2].WhiteToken)
 	}
-	if games[2].ViewerToken == "" {
-		t.Fatalf("Expected non-empty viewer token for game 2")
+	if games[2].ViewerToken != "" {
+		t.Fatalf("Expected empty viewer token for game 2")
 	}
-	if games[0].ViewerToken != "" || games[1].ViewerToken != "" {
-		t.Fatalf("Expected empty viewer tokens for games 0 and 1")
+	if games[0].ViewerToken == "" || games[1].ViewerToken == "" {
+		t.Fatalf("Expected non-empty viewer tokens for games 0 and 1")
 	}
 	if games[0].BlackToken != "" || games[1].WhiteToken != "" || games[2].BlackToken != "" {
 		t.Fatalf("Expected empty other player tokens for games 0, 1 and 2")
@@ -229,9 +229,9 @@ func TestListPublicGames(t *testing.T) {
 	user3 := mustRegisterAndAuthenticateUser(t, email3, password3, screenName3)
 
 	// user1 has 2 public games
-	mustCreateGame(t, user1, true, false)
 	mustCreateGame(t, user1, false, true)
 	mustCreateGame(t, user1, true, true)
+	mustCreateGame(t, user1, true, false)
 
 	// user2 has 3 public games
 	mustCreateGame(t, user2, false, true)
@@ -243,5 +243,25 @@ func TestListPublicGames(t *testing.T) {
 	mustCreateGame(t, user3, false, true)
 	mustCreateGame(t, user3, false, false)
 	mustCreateGame(t, user3, true, false)
+
+	var games []*gameserver.Game
+
+	// Test 1: user1 sees 4 public games by other users
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user1.Token}, &games)
+	if len(games) != 4 {
+		t.Fatalf("Expected 4 public games, got %d", len(games))
+	}
+
+	// Test 2: user2 sees 3 public games by other users
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user2.Token}, &games)
+	if len(games) != 3 {
+		t.Fatalf("Expected 3 public games, got %d", len(games))
+	}
+
+	// Test 3: user3 sees 5 public games by other users
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user3.Token}, &games)
+	if len(games) != 5 {
+		t.Fatalf("Expected 5 public games, got %d", len(games))
+	}
 
 }
