@@ -19,6 +19,7 @@ func RegisterGameHandlers(prefix string) {
 	http.HandleFunc(prefix+"/list/byuser", EnableCors(listGamesByUserHandler))
 	http.HandleFunc(prefix+"/list/joinable", EnableCors(joinableGamesHandler))
 	http.HandleFunc(prefix+"/join", EnableCors(joinGameHandler))
+	http.HandleFunc(prefix+"/cancel", EnableCors(cancelGameHandler))
 }
 
 type Conn struct {
@@ -611,4 +612,36 @@ func updateGame(game *Game, userId int, token Token) error {
 	}
 	_, err := db.Exec(query, userId, token, game.Id)
 	return err
+}
+
+func cancelGameHandler(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Id    int   `json:"id"`
+		Token Token `json:"token"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		sendError(w, serverError("incorrect request", err))
+		return
+	}
+	game, err := GetGameWithId(request.Id)
+	if err != nil {
+		sendError(w, serverError("invalid game id", err))
+		return
+	}
+	player, _ := validateGameToken(request.Id, request.Token)
+	if player == InvalidPlayer {
+		sendError(w, serverError("invalid token", nil))
+		return
+	}
+	if game.WhitePlayer != "" && game.BlackPlayer != "" {
+		sendError(w, serverError("cannot cancel a game that has already started", nil))
+		return
+	}
+	_, err = db.Exec("DELETE FROM games WHERE id = ?", request.Id)
+	if err != nil {
+		sendError(w, serverError("cannot delete game", err))
+		return
+	}
+	writeJSONResponse(w, map[string]interface{}{"status": "ok"})
 }

@@ -368,3 +368,79 @@ func TestJoiningGame(t *testing.T) {
 	// that "join" token will be replaced with the actual token of the other player, which won't be visible
 	// to the first player.
 }
+
+func TestCancelGame(t *testing.T) {
+	// Delete all the games currently in the database
+	err := gameserver.ExecuteSQL("DELETE FROM games")
+	if err != nil {
+		t.Fatalf("Failed to delete games: %v", err)
+	}
+
+	email1 := "user-canceling-games1@example.com"
+	password1 := "user-canceling-games1-password"
+	screenName1 := "User canceling Games 1"
+
+	email2 := "user-canceling-games2@example.com"
+	password2 := "user-canceling-games2-password"
+	screenName2 := "User canceling Games 2"
+
+	user1 := mustRegisterAndAuthenticateUser(t, email1, password1, screenName1)
+	user2 := mustRegisterAndAuthenticateUser(t, email2, password2, screenName2)
+
+	game1 := mustCreateGame(t, user1, true, true)
+	game2 := mustCreateGame(t, user2, false, true)
+
+	var games []*gameserver.Game
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/byuser", struct{ Token gameserver.Token }{
+		Token: user1.Token,
+	}, &games)
+	if len(games) != 1 {
+		t.Fatalf("Expected 1 game, got %d", len(games))
+	}
+
+	// Test 1: user1 can cancel game1
+	resp := postObject(t, "http://localhost:1234/game/cancel", map[string]interface{}{
+		"id":    game1.Id,
+		"token": user1.Token,
+	})
+	if isErrorResponse(resp, "") {
+		t.Fatalf("Cannot cancel a game: %s", resp)
+	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/byuser", struct{ Token gameserver.Token }{
+		Token: user1.Token,
+	}, &games)
+	if len(games) != 0 {
+		t.Fatalf("Expected 0 games after cancellation, got %d", len(games))
+	}
+
+	// Test 2: user1 cannot cancel game2
+	resp = postObject(t, "http://localhost:1234/game/cancel", map[string]interface{}{
+		"id":    game2.Id,
+		"token": user1.Token,
+	})
+	if !isErrorResponse(resp, "invalid token") {
+		t.Fatalf("Expected error when canceling a game by another user, got %s", resp)
+	}
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/byuser", struct{ Token gameserver.Token }{
+		Token: user2.Token}, &games)
+	if len(games) != 1 {
+		t.Fatalf("Expected 1 game after cancellation, got %d", len(games))
+	}
+
+	// Test 3: cannot cancel a game that has started
+	mustJoinGame(t, user1, game2)
+	resp = postObject(t, "http://localhost:1234/game/cancel", map[string]interface{}{
+		"id":    game2.Id,
+		"token": user1.Token,
+	})
+	if !isErrorResponse(resp, "cannot cancel") {
+		t.Fatalf("Expected error when canceling a game that has started, got %s", resp)
+	}
+	resp = postObject(t, "http://localhost:1234/game/cancel", map[string]interface{}{
+		"id":    game2.Id,
+		"token": user2.Token,
+	})
+	if !isErrorResponse(resp, "cannot cancel") {
+		t.Fatalf("Expected error when canceling a game that has started, got %s", resp)
+	}
+}
