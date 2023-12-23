@@ -487,6 +487,7 @@ func listGamesByUser(user *User) ([]*Game, error) {
 		LEFT JOIN users u2 ON g.black_user_id = u2.id
 		WHERE g.white_user_id = ? OR g.black_user_id = ?
 		GROUP BY g.id
+		ORDER BY (g.white_user_id == -1 OR g.black_user_id == -1)
 	`
 	return getGamesWithQuery(query, user.Id, user.Id)
 }
