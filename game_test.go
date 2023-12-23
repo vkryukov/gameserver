@@ -1,6 +1,7 @@
 package gameserver_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/vkryukov/gameserver"
@@ -281,5 +282,89 @@ func TestJoinableGames(t *testing.T) {
 	if areNonEmptyTokens(games) {
 		t.Fatalf("Expected empty tokens for all games, got %s", mustPrettyPrint(t, games))
 	}
+}
 
+func joinGame(t *testing.T, user *gameserver.User, game *gameserver.Game) []byte {
+	return postObject(t, "http://localhost:1234/game/join", map[string]interface{}{
+		"id":    game.Id,
+		"token": user.Token,
+	})
+}
+
+func mustJoinGame(t *testing.T, user *gameserver.User, game *gameserver.Game) *gameserver.Game {
+	resp := joinGame(t, user, game)
+	if isErrorResponse(resp, "") {
+		t.Fatalf("Cannot join a game: %s", resp)
+	}
+	var game2 gameserver.Game
+	err := json.Unmarshal(resp, &game2)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response %q: %v", string(resp), err)
+	}
+	return &game2
+}
+
+func TestJoiningGame(t *testing.T) {
+	// Delete all the games currently in the database
+	err := gameserver.ExecuteSQL("DELETE FROM games")
+	if err != nil {
+		t.Fatalf("Failed to delete games: %v", err)
+	}
+
+	email1 := "user-joinining-games1@example.com"
+	password1 := "user-joinining-games1-password"
+	screenName1 := "User Joinining Games 1"
+
+	email2 := "user-joinining-games2@example.com"
+	password2 := "user-joinining-games2-password"
+	screenName2 := "User Joinining Games 2"
+
+	user1 := mustRegisterAndAuthenticateUser(t, email1, password1, screenName1)
+	user2 := mustRegisterAndAuthenticateUser(t, email2, password2, screenName2)
+
+	game1 := mustCreateGame(t, user1, true, true)
+	game2 := mustCreateGame(t, user1, false, true)
+
+	// Test 1: user2 can join game1 as black player
+	game1joined := mustJoinGame(t, user2, game1)
+	if game1joined.BlackPlayer != screenName2 {
+		t.Fatalf("Joined game has wrong black player: %s", game1joined.BlackPlayer)
+	}
+	if game1joined.BlackToken == "" {
+		t.Fatalf("Joined game has empty black token")
+	}
+	if game1joined.WhiteToken != "" {
+		t.Fatalf("Joined game has non-empty white token")
+	}
+	if game1joined.BlackToken == user2.Token {
+		t.Fatalf("Joined game has the same black token as the user")
+	}
+
+	// Test 2: user2 can join game2 as white player
+	game2joined := mustJoinGame(t, user2, game2)
+	if game2joined.WhitePlayer != screenName2 {
+		t.Fatalf("Joined game has wrong white player: %s", game2joined.WhitePlayer)
+	}
+	if game2joined.WhiteToken == "" {
+		t.Fatalf("Joined game has empty white token")
+	}
+	if game2joined.BlackToken != "" {
+		t.Fatalf("Joined game has non-empty black token")
+	}
+	if game2joined.WhiteToken == user2.Token {
+		t.Fatalf("Joined game has the same white token as the user")
+	}
+
+	// Test 3: cannot join an already joined game
+	resp := joinGame(t, user2, game1)
+	if !isErrorResponse(resp, "game is full") {
+		t.Fatalf("Expected error when joining an already joined game, got %s", resp)
+	}
+
+	// Test 4: cannot join a non-public game
+	// TODO: implement this test
+	// If we create a private game, we *should* send the other player token to the user who created the game.
+	// They can share that token with the other player, who can then join the game. At that point of time,
+	// that "join" token will be replaced with the actual token of the other player, which won't be visible
+	// to the first player.
 }

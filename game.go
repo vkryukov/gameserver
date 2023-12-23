@@ -18,6 +18,7 @@ func RegisterGameHandlers(prefix string) {
 	http.HandleFunc(prefix+"/create", EnableCors(createGameHandler))
 	http.HandleFunc(prefix+"/list", EnableCors(listGamesByUserHandler))
 	http.HandleFunc(prefix+"/joinable", EnableCors(joinableGamesHandler))
+	http.HandleFunc(prefix+"/join", EnableCors(joinGameHandler))
 }
 
 type Conn struct {
@@ -542,4 +543,71 @@ func getGamesWithQuery(query string, params ...any) ([]*Game, error) {
 	}
 
 	return games, nil
+}
+
+func joinGameHandler(w http.ResponseWriter, r *http.Request) {
+	// extract from request body
+	var request struct {
+		Id    int   `json:"id"`
+		Token Token `json:"token"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		sendError(w, serverError("incorrect request", err))
+		return
+	}
+
+	// check that the game exists and is joinable
+	game, err := GetGameWithId(request.Id)
+	if err != nil {
+		sendError(w, serverError("invalid game id", err))
+		return
+	}
+	if game.WhitePlayer != "" && game.BlackPlayer != "" {
+		log.Printf("Game %d is full: %v", game.Id, game)
+		sendError(w, serverError("game is full", nil))
+		return
+	}
+
+	// check that the user with this token exists
+	user, err := GetUserWithToken(request.Token)
+	if err != nil {
+		sendError(w, serverError("incorrect token", err))
+		return
+	}
+
+	token := generateToken()
+
+	// update the game
+	err = updateGame(game, user.Id, token)
+	if err != nil {
+		sendError(w, serverError("cannot update game", err))
+		return
+	}
+
+	// clear the other player token
+	if game.WhitePlayer == "" {
+		game.BlackToken = ""
+		game.WhitePlayer = user.ScreenName
+		game.WhiteToken = token
+	} else {
+		game.WhiteToken = ""
+		game.BlackPlayer = user.ScreenName
+		game.BlackToken = token
+	}
+
+	writeJSONResponse(w, game)
+}
+
+func updateGame(game *Game, userId int, token Token) error {
+	var query string
+	if game.WhitePlayer == "" {
+		query = "UPDATE games SET white_user_id = ?, white_token = ? WHERE id = ?"
+	} else if game.BlackPlayer == "" {
+		query = "UPDATE games SET black_user_id = ?, black_token = ? WHERE id = ?"
+	} else {
+		return fmt.Errorf("game is full: %v", game)
+	}
+	_, err := db.Exec(query, userId, token, game.Id)
+	return err
 }
