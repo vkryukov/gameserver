@@ -181,7 +181,7 @@ func TestListingUserGames(t *testing.T) {
 
 	// Test1: a list of active games contains all games
 	var games []*gameserver.Game
-	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list", struct{ Token gameserver.Token }{
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/byuser", struct{ Token gameserver.Token }{
 		Token: user.Token,
 	}, &games)
 	if len(games) != 3 {
@@ -257,7 +257,7 @@ func TestJoinableGames(t *testing.T) {
 	var games []*gameserver.Game
 
 	// Test 1: user1 sees 4 public games by other users
-	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user1.Token}, &games)
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/joinable", struct{ Token gameserver.Token }{user1.Token}, &games)
 	if len(games) != 4 {
 		t.Fatalf("Expected 4 public games, got %d", len(games))
 	}
@@ -266,7 +266,7 @@ func TestJoinableGames(t *testing.T) {
 	}
 
 	// Test 2: user2 sees 3 public games by other users
-	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user2.Token}, &games)
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/joinable", struct{ Token gameserver.Token }{user2.Token}, &games)
 	if len(games) != 3 {
 		t.Fatalf("Expected 3 public games, got %d", len(games))
 	}
@@ -275,7 +275,7 @@ func TestJoinableGames(t *testing.T) {
 	}
 
 	// Test 3: user3 sees 5 public games by other users
-	mustDecodeRequestWithObject(t, "http://localhost:1234/game/joinable", struct{ Token gameserver.Token }{user3.Token}, &games)
+	mustDecodeRequestWithObject(t, "http://localhost:1234/game/list/joinable", struct{ Token gameserver.Token }{user3.Token}, &games)
 	if len(games) != 5 {
 		t.Fatalf("Expected 5 public games, got %d", len(games))
 	}
