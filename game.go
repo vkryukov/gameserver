@@ -16,8 +16,8 @@ import (
 func RegisterGameHandlers(prefix string) {
 	http.HandleFunc(prefix+"/ws", EnableCors(handleWebSocket))
 	http.HandleFunc(prefix+"/create", EnableCors(createGameHandler))
-	http.HandleFunc(prefix+"/list", EnableCors(listGamesByUserHandler))
-	http.HandleFunc(prefix+"/joinable", EnableCors(joinableGamesHandler))
+	http.HandleFunc(prefix+"/list/byuser", EnableCors(listGamesByUserHandler))
+	http.HandleFunc(prefix+"/list/joinable", EnableCors(joinableGamesHandler))
 	http.HandleFunc(prefix+"/join", EnableCors(joinGameHandler))
 }
 
