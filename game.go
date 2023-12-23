@@ -643,5 +643,5 @@ func cancelGameHandler(w http.ResponseWriter, r *http.Request) {
 		sendError(w, serverError("cannot delete game", err))
 		return
 	}
-	writeJSONResponse(w, map[string]interface{}{"status": "ok"})
+	writeJSONResponse(w, map[string]interface{}{"status": "game deleted successfully", "id": request.Id})
 }
