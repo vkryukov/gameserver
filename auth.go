@@ -24,10 +24,10 @@ var (
 func RegisterAuthHandlers(prefix, base string) {
 	handlerPrefix = prefix
 	baseURL = base
-	http.HandleFunc(handlerPrefix+"/login", EnableCors(loginHandler))
+	http.HandleFunc(handlerPrefix+"/signin", EnableCors(singInHandler))
+	http.HandleFunc(handlerPrefix+"/signup", EnableCors(signUpHandler))
 	http.HandleFunc(handlerPrefix+"/check", EnableCors(checkHandler))
 	http.HandleFunc(handlerPrefix+"/verify", EnableCors(verificationHandler))
-	http.HandleFunc(handlerPrefix+"/register", EnableCors(registerUserHandler))
 	http.HandleFunc(handlerPrefix+"/changepassword", EnableCors(changePasswordHandler))
 
 	// We need to implement the following endpoints:
@@ -103,7 +103,7 @@ func addNewTokenToUser(exec execer, userID int) (Token, error) {
 	return token, err
 }
 
-func AuthenticateUser(userReq *User) (*User, error) {
+func SignInUser(userReq *User) (*User, error) {
 	if userReq.Email == "" {
 		return nil, fmt.Errorf("missing email")
 	}
@@ -135,7 +135,7 @@ func serverError(message string, err error) error {
 	return fmt.Errorf("server: " + message)
 }
 
-func RegisterUser(userReq *User) (*User, error) {
+func SignUpUser(userReq *User) (*User, error) {
 	if userReq.Email == "" {
 		return nil, fmt.Errorf("missing email")
 	}
@@ -178,6 +178,7 @@ func RegisterUser(userReq *User) (*User, error) {
 		return nil, serverError("cannot commit transaction", err)
 	}
 	return &User{
+		Id:            int(userID),
 		Email:         userReq.Email,
 		ScreenName:    userReq.ScreenName,
 		EmailVerified: false,
@@ -231,7 +232,7 @@ func sendRegistrationEmail(email, screenName, verificationLink string) error {
 }
 
 func changePassword(userReq *User) (*User, error) {
-	user, err := AuthenticateUser(userReq)
+	user, err := SignInUser(userReq)
 	if err != nil {
 		return nil, err
 	}
@@ -301,12 +302,12 @@ func handleUser(w http.ResponseWriter, r *http.Request, userFunc func(*User) (*U
 	sendUserResponse(w, user)
 }
 
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	handleUser(w, r, AuthenticateUser)
+func singInHandler(w http.ResponseWriter, r *http.Request) {
+	handleUser(w, r, SignInUser)
 }
 
-func registerUserHandler(w http.ResponseWriter, r *http.Request) {
-	handleUser(w, r, RegisterUser)
+func signUpHandler(w http.ResponseWriter, r *http.Request) {
+	handleUser(w, r, SignUpUser)
 }
 
 func changePasswordHandler(w http.ResponseWriter, r *http.Request) {

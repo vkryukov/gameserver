@@ -16,7 +16,7 @@ var testScreenName = "Test Register User"
 
 func mustRegisterUser(t *testing.T, email string, password string, screenName string) *gameserver.User {
 	userReq := &gameserver.User{Email: email, Password: password, ScreenName: screenName}
-	_, err := gameserver.RegisterUser(userReq)
+	_, err := gameserver.SignUpUser(userReq)
 	if err != nil {
 		t.Fatalf("Failed to register user: %v", err)
 	}
@@ -35,7 +35,7 @@ func mustRegisterUser(t *testing.T, email string, password string, screenName st
 
 func mustAuthenticateUser(t *testing.T, email string, password string) *gameserver.User {
 	var user gameserver.User
-	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: email, Password: password}, &user)
+	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/signin", &gameserver.User{Email: email, Password: password}, &user)
 	if user.Email != email {
 		t.Fatalf("Authenticated user has wrong email: %s", user.Email)
 	}
@@ -64,7 +64,7 @@ func TestBasicRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	// Test 3: after registering a user, another one cannot be registered with the same email.
-	_, err = gameserver.RegisterUser(testUser)
+	_, err = gameserver.SignUpUser(testUser)
 	if err == nil {
 		t.Fatalf("Expected error when registering user with duplicate email, got nil")
 	}
@@ -73,7 +73,7 @@ func TestBasicRegistrationAndAuthentication(t *testing.T) {
 	mustAuthenticateUser(t, testEmail, testPassword)
 
 	// Test 5: after registering a user, it cannot be authenticated with the wrong password
-	_, err = gameserver.AuthenticateUser(&gameserver.User{Email: testEmail, Password: "wrong password"})
+	_, err = gameserver.SignInUser(&gameserver.User{Email: testEmail, Password: "wrong password"})
 	if err == nil {
 		t.Fatalf("Expected error when authenticating user with wrong password, got nil")
 	}
@@ -83,7 +83,7 @@ func TestBasicRegistrationAndAuthentication(t *testing.T) {
 func TestLoginAndCheckHandler(t *testing.T) {
 	// Test 1: registered user can be authenticated with right password
 	var responseUser gameserver.User
-	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmail, Password: testPassword}, &responseUser)
+	mustDecodeRequestWithObject(t, "http://localhost:1234/auth/signin", &gameserver.User{Email: testEmail, Password: testPassword}, &responseUser)
 	if responseUser.Email != testEmail {
 		t.Fatalf("Authenticated user has wrong email: %s", responseUser.Email)
 	}
@@ -116,33 +116,50 @@ func TestLoginAndCheckHandler(t *testing.T) {
 	}
 
 	// Test 2: registered user cannot be authenticated with wrong password
-	resp = postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmail, Password: "wrong password"})
+	resp = postObject(t, "http://localhost:1234/auth/signin", &gameserver.User{Email: testEmail, Password: "wrong password"})
 	if !isErrorResponse(resp, "wrong password") {
 		t.Fatalf("Expected error when authenticating unregistered user, got %s", resp)
 	}
 
 	// Test 3: unregistered user cannot be authenticated
-	resp = postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: "user-doesnt-exist@example.com", Password: "password"})
+	resp = postObject(t, "http://localhost:1234/auth/signin", &gameserver.User{Email: "user-doesnt-exist@example.com", Password: "password"})
 	if !isErrorResponse(resp, "not found") {
 		t.Fatalf("Expected error when authenticating unregistered user, got %s", resp)
 	}
 
 	// Test 4: sending a request with an empty body returns an error
-	resp = postObject(t, "http://localhost:1234/auth/login", &gameserver.User{})
+	resp = postObject(t, "http://localhost:1234/auth/signin", &gameserver.User{})
 	if !isErrorResponse(resp, "missing email") {
 		t.Fatalf("Expected error when authenticating with emtpy body, got %s", resp)
 	}
 
 	// Test 5: sending a request with an empty password returns an error
-	resp = postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: "test@example.com"})
+	resp = postObject(t, "http://localhost:1234/auth/signin", &gameserver.User{Email: "test@example.com"})
 	if !isErrorResponse(resp, "missing password") {
 		t.Fatalf("Expected error when authenticating with emtpy password, got %s", resp)
 	}
 
 	// Test 6: sending a request with wrong body returns an error
-	resp = postRequestWithBody(t, "http://localhost:1234/auth/login", []byte("wrong body"))
+	resp = postRequestWithBody(t, "http://localhost:1234/auth/signin", []byte("wrong body"))
 	if !isErrorResponse(resp, "invalid character") {
 		t.Fatalf("Expected error when authenticating with wrong body, got %s", resp)
+	}
+}
+
+func TestSingupHandler(t *testing.T) {
+	// Test 1: we can register a new user
+	testEmail := "test-signup-handler@example.com"
+	testPassword := "signup-user-password"
+	testScreenName := "Test Signup User"
+	resp := postObject(t, "http://localhost:1234/auth/signup", &gameserver.User{Email: testEmail, Password: testPassword, ScreenName: testScreenName})
+	var user gameserver.User
+	err := json.Unmarshal(resp, &user)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	resp = postObject(t, "http://localhost:1234/auth/check?token="+string(user.Token), "")
+	if isErrorResponse(resp, "") {
+		t.Fatalf("Failed to register user: %s", resp)
 	}
 }
 
@@ -173,7 +190,7 @@ func TestEmailVerification(t *testing.T) {
 		t.Fatalf("Failed to verify email: %s", resp)
 	}
 
-	resp = postObject(t, "http://localhost:1234/auth/login", &gameserver.User{Email: testEmailUser, Password: testEmailPassword})
+	resp = postObject(t, "http://localhost:1234/auth/signin", &gameserver.User{Email: testEmailUser, Password: testEmailPassword})
 	var responseUser gameserver.User
 	if isErrorResponse(resp, "") {
 		t.Fatalf("Failed log in again: %s", resp)
