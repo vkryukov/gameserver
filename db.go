@@ -16,16 +16,19 @@ import (
 var db *sql.DB
 
 // InitDB initializes the database. User :memory: to use an in-memory database.
-func InitDB(path string) error {
-	var err error
+func setupPath(path string) string {
 	var prefix string
-
 	if path == ":memory:" {
 		prefix = path
 	} else {
 		prefix = "file:" + path
 	}
-	db, err = sql.Open("sqlite3", prefix+"?cache=shared&mode=rwc&_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000")
+	return prefix + "?cache=shared&mode=rwc&_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000"
+}
+
+func InitDB(path string) error {
+	var err error
+	db, err = sql.Open("sqlite3", setupPath(path))
 	if err != nil {
 		return err
 	}

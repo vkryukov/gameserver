@@ -31,7 +31,7 @@ var logDb *sql.DB
 
 func InitLogDB(path string) error {
 	var err error
-	logDb, err = sql.Open("sqlite3", path)
+	logDb, err = sql.Open("sqlite3", setupPath(path))
 	if err != nil {
 		return err
 	}
