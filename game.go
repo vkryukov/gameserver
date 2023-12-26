@@ -14,12 +14,12 @@ import (
 
 // WebSockets
 func RegisterGameHandlers(prefix string) {
-	http.HandleFunc(prefix+"/ws", EnableCors(handleWebSocket))
-	http.HandleFunc(prefix+"/create", EnableCors(createGameHandler))
-	http.HandleFunc(prefix+"/list/byuser", EnableCors(listGamesByUserHandler))
-	http.HandleFunc(prefix+"/list/joinable", EnableCors(joinableGamesHandler))
-	http.HandleFunc(prefix+"/join", EnableCors(joinGameHandler))
-	http.HandleFunc(prefix+"/cancel", EnableCors(cancelGameHandler))
+	http.HandleFunc(prefix+"/ws", Middleware(handleWebSocket))
+	http.HandleFunc(prefix+"/create", Middleware(createGameHandler))
+	http.HandleFunc(prefix+"/list/byuser", Middleware(listGamesByUserHandler))
+	http.HandleFunc(prefix+"/list/joinable", Middleware(joinableGamesHandler))
+	http.HandleFunc(prefix+"/join", Middleware(joinGameHandler))
+	http.HandleFunc(prefix+"/cancel", Middleware(cancelGameHandler))
 }
 
 type Conn struct {

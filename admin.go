@@ -6,8 +6,8 @@ import (
 )
 
 func RegisterAdminHandlers(prefix, baseURL string) {
-	http.HandleFunc(baseURL+prefix+"/users", EnableCors(handleListUsers))
-	http.HandleFunc(baseURL+prefix+"/games", EnableCors(handleListGames))
+	http.HandleFunc(baseURL+prefix+"/users", Middleware(handleListUsers))
+	http.HandleFunc(baseURL+prefix+"/games", Middleware(handleListGames))
 }
 
 func handleListUsers(w http.ResponseWriter, r *http.Request) {

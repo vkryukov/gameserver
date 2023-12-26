@@ -24,11 +24,11 @@ var (
 func RegisterAuthHandlers(prefix, base string) {
 	handlerPrefix = prefix
 	baseURL = base
-	http.HandleFunc(handlerPrefix+"/signin", EnableCors(singInHandler))
-	http.HandleFunc(handlerPrefix+"/signup", EnableCors(signUpHandler))
-	http.HandleFunc(handlerPrefix+"/check", EnableCors(checkHandler))
-	http.HandleFunc(handlerPrefix+"/verify", EnableCors(verificationHandler))
-	http.HandleFunc(handlerPrefix+"/changepassword", EnableCors(changePasswordHandler))
+	http.HandleFunc(handlerPrefix+"/signin", Middleware(singInHandler))
+	http.HandleFunc(handlerPrefix+"/signup", Middleware(signUpHandler))
+	http.HandleFunc(handlerPrefix+"/check", Middleware(checkHandler))
+	http.HandleFunc(handlerPrefix+"/verify", Middleware(verificationHandler))
+	http.HandleFunc(handlerPrefix+"/changepassword", Middleware(changePasswordHandler))
 
 	// We need to implement the following endpoints:
 	// TODO: resend the verification email
