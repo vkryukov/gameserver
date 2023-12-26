@@ -17,6 +17,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -35,7 +37,7 @@ func InitLogDB(path string) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`
+	_, err = logDb.Exec(`
 	CREATE TABLE IF NOT EXISTS requests (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		uuid TEXT, 
@@ -63,7 +65,28 @@ func InitLogDB(path string) error {
 		duration INTEGER
 	);
 	`)
+
+	if err == nil {
+		fmt.Printf("Created tables\n")
+		rows, err := logDb.Query("SELECT name FROM sqlite_master WHERE type='table'")
+		if err != nil {
+			log.Fatalf("Error querying tables: %v", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			rows.Scan(&name)
+			log.Printf("Found table: %s", name)
+		}
+	} else {
+		log.Fatalf("Error creating tables: %v", err)
+	}
+
 	return err
+}
+
+func CloseLogDB() error {
+	return logDb.Close()
 }
 
 // Logging middleware
@@ -75,13 +98,14 @@ type config struct {
 
 var _config config
 
-func SetConfig(enableCors bool, enableLogging bool) {
+func SetMiddlewareConfig(enableCors bool, enableLogging bool) {
 	_config = config{enableCors, enableLogging}
 }
 
 type contextKey string
 
 type loggingResponseWriter struct {
+	requestID uuid.UUID
 	http.ResponseWriter
 	statusCode int
 	body       bytes.Buffer
@@ -94,7 +118,7 @@ func (lrw *loggingResponseWriter) Write(b []byte) (int, error) {
 
 func (lrw *loggingResponseWriter) save() error {
 	_, err := logDb.Exec("INSERT INTO responses(uuid, status_code, body) VALUES(?, ?, ?)",
-		lrw.Header().Get("X-Request-ID"), lrw.statusCode, lrw.body.String())
+		lrw.requestID, lrw.statusCode, lrw.body.String())
 	return err
 }
 
@@ -111,13 +135,23 @@ func loggingMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New()
 		ctx := context.WithValue(r.Context(), contextKey("requestID"), requestID)
-		_, err := logDb.Exec("INSERT INTO requests(uuid, endpoint, method, params, body) VALUES(?, ?, ?, ?, ?)",
-			requestID.String(), r.URL.Path, r.Method, r.URL.Query().Encode(), r.Body)
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Error reading request body: %v", err)
+		}
+		err = r.Body.Close()
+		if err != nil {
+			log.Printf("Error closing request body: %v", err)
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		bodyString := string(bodyBytes)
+		_, err = logDb.Exec("INSERT INTO requests(uuid, endpoint, method, params, body) VALUES(?, ?, ?, ?, ?)",
+			requestID.String(), r.URL.Path, r.Method, r.URL.Query().Encode(), bodyString)
 		if err != nil {
 			log.Printf("Error logging request: %v", err)
 		}
 
-		lrw := &loggingResponseWriter{w, http.StatusOK, bytes.Buffer{}}
+		lrw := &loggingResponseWriter{requestID, w, http.StatusOK, bytes.Buffer{}}
 		handler(lrw, r.WithContext(ctx))
 
 		err = lrw.save()

@@ -30,8 +30,14 @@ var (
 )
 
 func setup() {
-	gameserver.InitDB(":memory:")
+	if err := gameserver.InitDB(":memory:"); err != nil {
+		log.Fatalf("Failed to initialize DB: %v", err)
+	}
 	gameserver.SetMailServer(&gameserver.MockEmailSender{})
+	gameserver.SetMiddlewareConfig(false, true)
+	if err := gameserver.InitLogDB("log.db"); err != nil {
+		log.Fatalf("Failed to initialize log DB: %v", err)
+	}
 	port = ":1234"
 	baseURL = "http://localhost" + port
 	srv = http.Server{
@@ -54,7 +60,12 @@ func teardown() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("Server Shutdown: %v", err)
 	}
-	gameserver.CloseDB()
+	if err := gameserver.CloseDB(); err != nil {
+		log.Fatalf("Failed to close DB: %v", err)
+	}
+	if err := gameserver.CloseLogDB(); err != nil {
+		log.Fatalf("Failed to close log DB: %v", err)
+	}
 }
 
 func postRequestWithBody(t *testing.T, url string, body []byte) []byte {
