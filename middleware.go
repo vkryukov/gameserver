@@ -234,6 +234,9 @@ func maybePrettyJSON(s string) string {
 		}
 		return "\n" + cyanColor + prettyJSON.String() + resetColor
 	}
+	if s == "null" {
+		return "\n" + cyanColor + s + resetColor
+	}
 	return s
 }
 
