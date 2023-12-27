@@ -199,7 +199,18 @@ func StartPrintingLog(interval time.Duration) {
 				} else {
 					paramsOrBody = maybePrettyJSON(body)
 				}
-				fmt.Printf("%s\n%s %s%s\n%d %s\n\n", time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"), method, endpoint, paramsOrBody, statusCode, maybePrettyJSON(responseBody))
+				var coloredStatusCode string
+				if statusCode >= 200 && statusCode < 300 {
+					coloredStatusCode = greenColor + fmt.Sprintf("%d", statusCode) + resetColor
+				} else if statusCode >= 400 && statusCode < 500 {
+					coloredStatusCode = redColor + fmt.Sprintf("%d", statusCode) + resetColor
+				} else {
+					coloredStatusCode = fmt.Sprintf("%d", statusCode)
+				}
+				fmt.Printf("%s%s%s\n%s %s%s\n%s%s\n\n",
+					lightGreyColor, time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"), resetColor,
+					method, endpoint, paramsOrBody,
+					coloredStatusCode, maybePrettyJSON(responseBody))
 				uuids = append(uuids, uuid)
 
 			}
@@ -221,7 +232,7 @@ func maybePrettyJSON(s string) string {
 		if err != nil {
 			return s
 		}
-		return "\n" + prettyJSON.String()
+		return "\n" + cyanColor + prettyJSON.String() + resetColor
 	}
 	return s
 }
