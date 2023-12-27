@@ -19,7 +19,7 @@ func saveAction(gameID int, actionNum int, action string, signature string) erro
 }
 
 func checkActionValidity(gameID int, actionNum int) error {
-	numActions, err := getNumberOfActions(gameID)
+	numActions, err := GetNumberOfActions(gameID)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func checkActionValidity(gameID int, actionNum int) error {
 	return nil
 }
 
-func getNumberOfActions(gameID int) (int, error) {
+func GetNumberOfActions(gameID int) (int, error) {
 	var numActions int
 	err := db.QueryRow("SELECT COUNT(*) FROM actions WHERE game_id = ?", gameID).Scan(&numActions)
 	if err != nil {
@@ -40,7 +40,9 @@ func getNumberOfActions(gameID int) (int, error) {
 
 func getAllActions(gameID int) ([]Action, error) {
 	rows, err := db.Query("SELECT action_num, action, action_signature FROM actions WHERE game_id = ?", gameID)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return []Action{}, nil
+	} else if err != nil {
 		return nil, err
 	}
 	defer func(rows *sql.Rows) {

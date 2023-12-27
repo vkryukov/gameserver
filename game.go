@@ -166,13 +166,15 @@ func CreateGame(request *Game) (*Game, error) {
 		return nil, err
 	}
 
-	actions := strings.Split(request.GameRecord, " ")
-	for i, action := range actions {
-		_, err := tx.Exec("INSERT INTO actions(game_id, action_num, action) VALUES(?, ?, ?)", gameID, i+1, action)
-		if err != nil {
-			log.Printf("error inserting action %d: %v", i+1, err)
-			tx.Rollback()
-			return nil, err
+	if request.GameRecord != "" {
+		actions := strings.Split(request.GameRecord, " ")
+		for i, action := range actions {
+			_, err := tx.Exec("INSERT INTO actions(game_id, action_num, action, action_signature) VALUES(?, ?, ?, '')", gameID, i+1, action)
+			if err != nil {
+				log.Printf("error inserting action %d: %v", i+1, err)
+				tx.Rollback()
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {

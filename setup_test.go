@@ -7,11 +7,13 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/vkryukov/gameserver"
 )
 
@@ -27,6 +29,7 @@ var (
 	port    string
 	baseURL string
 	srv     http.Server
+	ws      *websocket.Conn
 )
 
 func setup() {
@@ -34,7 +37,7 @@ func setup() {
 		log.Fatalf("Failed to initialize DB: %v", err)
 	}
 	gameserver.SetMailServer(&gameserver.MockEmailSender{})
-	gameserver.SetMiddlewareConfig(false, true)
+	gameserver.SetMiddlewareConfig(true, false)
 	gameserver.StartPrintingLog(time.Second)
 	if err := gameserver.InitLogDB(":memory:"); err != nil {
 		log.Fatalf("Failed to initialize log DB: %v", err)
@@ -52,11 +55,20 @@ func setup() {
 			log.Fatalf("ListenAndServe(): %v", err)
 		}
 	}()
+
+	// setup websocket connection
+	u := url.URL{Scheme: "ws", Host: "localhost:1234", Path: "/game/ws"}
+	var err error
+	ws, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
 }
 
 func teardown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	defer ws.Close()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("Server Shutdown: %v", err)

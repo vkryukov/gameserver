@@ -40,6 +40,7 @@ type WebSocketMessage struct {
 
 // TODO: add logging for websocket connections
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Handling websocket connection from %s", r.RemoteAddr)
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade the connection: %v", err)
