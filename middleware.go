@@ -195,7 +195,7 @@ func StartPrintingLog(interval time.Duration) {
 				}
 				var paramsOrBody string
 				if params != "" {
-					paramsOrBody = "?" + params
+					paramsOrBody = cyanColor + "?" + params + resetColor
 				} else {
 					paramsOrBody = maybePrettyJSON(body)
 				}
@@ -207,8 +207,8 @@ func StartPrintingLog(interval time.Duration) {
 				} else {
 					coloredStatusCode = fmt.Sprintf("%d", statusCode)
 				}
-				fmt.Printf("%s%s%s\n%s %s%s\n%s%s\n\n",
-					lightGreyColor, time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"), resetColor,
+				fmt.Printf("%s%s%s\n%s %s%s\n=> %s%s\n\n",
+					brightBlueColor, time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"), resetColor,
 					method, endpoint, paramsOrBody,
 					coloredStatusCode, maybePrettyJSON(responseBody))
 				uuids = append(uuids, uuid)
