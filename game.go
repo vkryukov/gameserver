@@ -14,7 +14,7 @@ import (
 
 // WebSockets
 func RegisterGameHandlers(prefix string) {
-	http.HandleFunc(prefix+"/ws", Middleware(handleWebSocket))
+	http.HandleFunc(prefix+"/ws", EnableCors(handleWebSocket))
 	http.HandleFunc(prefix+"/create", Middleware(createGameHandler))
 	http.HandleFunc(prefix+"/list/byuser", Middleware(listGamesByUserHandler))
 	http.HandleFunc(prefix+"/list/joinable", Middleware(joinableGamesHandler))
