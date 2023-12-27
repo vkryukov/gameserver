@@ -336,7 +336,7 @@ func getGamesWithQuery(query string, params ...any) ([]*Game, error) {
 			return nil, err
 		}
 		game.CreationTime = int(creationTime)
-		if game.ViewerToken != "" {
+		if game.ViewerToken == "" {
 			game.Public = true
 		}
 

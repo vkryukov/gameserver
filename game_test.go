@@ -204,6 +204,9 @@ func TestListingUserGames(t *testing.T) {
 	if games[0].BlackToken != "" || games[1].WhiteToken != "" || games[2].BlackToken != "" {
 		t.Fatalf("Expected empty other player tokens for games 0, 1 and 2")
 	}
+	if games[0].Public || games[1].Public || !games[2].Public {
+		t.Fatalf("Expected game 3 to be public, and games 1 and 2 to be non-public, but found: %v, %v, %v", games[0].Public, games[1].Public, games[2].Public)
+	}
 }
 
 func areNonEmptyTokens(games []*gameserver.Game) bool {
