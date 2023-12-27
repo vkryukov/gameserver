@@ -35,7 +35,8 @@ func setup() {
 	}
 	gameserver.SetMailServer(&gameserver.MockEmailSender{})
 	gameserver.SetMiddlewareConfig(false, true)
-	if err := gameserver.InitLogDB("log.db"); err != nil {
+	gameserver.StartPrintingLog(time.Second)
+	if err := gameserver.InitLogDB(":memory:"); err != nil {
 		log.Fatalf("Failed to initialize log DB: %v", err)
 	}
 	port = ":1234"

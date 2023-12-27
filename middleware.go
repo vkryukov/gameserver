@@ -17,10 +17,13 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -44,7 +47,8 @@ func InitLogDB(path string) error {
 		endpoint TEXT,
 		method TEXT,
 		params TEXT,
-		body TEXT
+		body TEXT,
+		is_printed INTEGER DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS responses (
@@ -142,6 +146,84 @@ func loggingMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 			log.Printf("Error logging response: %v", err)
 		}
 	}
+}
+
+func StartPrintingLog(interval time.Duration) {
+	go func() {
+		currentTime := time.Now().Unix()
+		for {
+			time.Sleep(interval)
+			rows, err := logDb.Query(`
+			SELECT 
+				rq.uuid, rq.timestamp, rq.endpoint, rq.method, rq.params, rq.body, rs.status_code, rs.body
+			FROM 
+				requests rq
+			LEFT JOIN
+				responses rs
+			ON
+				rq.uuid = rs.uuid
+			WHERE
+				rq.is_printed = 0 AND rs.id IS NOT NULL AND rq.timestamp > ?
+			ORDER BY
+				rq.timestamp ASC
+			`, currentTime)
+			if err != nil {
+				log.Printf("Error querying requests: %v", err)
+				return
+			}
+			defer func(rows *sql.Rows) {
+				err := rows.Close()
+				if err != nil {
+					log.Printf("Error closing rows: %v", err)
+				}
+			}(rows)
+			var uuids []string
+			for rows.Next() {
+				var (
+					uuid         string
+					timestamp    int64
+					endpoint     string
+					method       string
+					params       string
+					body         string
+					statusCode   int
+					responseBody string
+				)
+				if err := rows.Scan(&uuid, &timestamp, &endpoint, &method, &params, &body, &statusCode, &responseBody); err != nil {
+					log.Printf("Error scanning row: %v", err)
+					return
+				}
+				var paramsOrBody string
+				if params != "" {
+					paramsOrBody = "?" + params
+				} else {
+					paramsOrBody = maybePrettyJSON(body)
+				}
+				fmt.Printf("%s\n%s %s%s\n%d %s\n\n", time.Unix(timestamp, 0).Format("2006-01-02 15:04:05"), method, endpoint, paramsOrBody, statusCode, maybePrettyJSON(responseBody))
+				uuids = append(uuids, uuid)
+
+			}
+			for _, uuid := range uuids {
+				_, err = logDb.Exec("UPDATE requests SET is_printed = 1 WHERE uuid = ?", uuid)
+				if err != nil {
+					log.Printf("Error updating request: %v", err)
+					return
+				}
+			}
+		}
+	}()
+}
+
+func maybePrettyJSON(s string) string {
+	if strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[") {
+		var prettyJSON bytes.Buffer
+		err := json.Indent(&prettyJSON, []byte(s), "", "  ")
+		if err != nil {
+			return s
+		}
+		return "\n" + prettyJSON.String()
+	}
+	return s
 }
 
 // CORS middleware
