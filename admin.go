@@ -1,7 +1,6 @@
 package gameserver
 
 import (
-	"log"
 	"net/http"
 )
 
@@ -21,7 +20,6 @@ func handleListUsers(w http.ResponseWriter, r *http.Request) {
 
 func handleListGames(w http.ResponseWriter, r *http.Request) {
 	games, err := listGames()
-	log.Printf("Games: %v", games)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

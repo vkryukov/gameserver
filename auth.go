@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"text/template"
 
@@ -130,8 +129,8 @@ func EmailExists(email string) bool {
 }
 
 // serverError logs the detailed error and returns an error message to the client.
+// TODO: enable additional logging for server errors.
 func serverError(message string, err error) error {
-	log.Printf("Server error %s: %v", message, err)
 	return fmt.Errorf("server: " + message)
 }
 
@@ -272,7 +271,6 @@ func sendUserResponse(w http.ResponseWriter, user *User) {
 }
 
 func sendError(w http.ResponseWriter, err error) {
-	log.Printf("Sending error to client: %v", err)
 	writeJSONResponse(w, struct {
 		Error string `json:"error"`
 	}{err.Error()})

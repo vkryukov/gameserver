@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -65,22 +64,6 @@ func InitLogDB(path string) error {
 		duration INTEGER
 	);
 	`)
-
-	if err == nil {
-		fmt.Printf("Created tables\n")
-		rows, err := logDb.Query("SELECT name FROM sqlite_master WHERE type='table'")
-		if err != nil {
-			log.Fatalf("Error querying tables: %v", err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var name string
-			rows.Scan(&name)
-			log.Printf("Found table: %s", name)
-		}
-	} else {
-		log.Fatalf("Error creating tables: %v", err)
-	}
 
 	return err
 }
@@ -186,7 +169,6 @@ func EnableCors(handler http.HandlerFunc) http.HandlerFunc {
 
 			handler(w, r)
 		} else {
-			log.Printf("CORS origin not allowed: %s", origin)
 			http.Error(w, "CORS origin not allowed", http.StatusForbidden)
 		}
 	}

@@ -2,7 +2,6 @@ package gameserver_test
 
 import (
 	"encoding/json"
-	"log"
 	"regexp"
 	"testing"
 
@@ -185,7 +184,6 @@ func TestEmailVerification(t *testing.T) {
 
 	// Visit the verification URL, and make sure there is no error.
 	resp := postRequestWithBody(t, verificationUrl, []byte(""))
-	log.Printf("resp = %s", resp)
 	if isErrorResponse(resp, "") {
 		t.Fatalf("Failed to verify email: %s", resp)
 	}
