@@ -56,13 +56,17 @@ func setup() {
 		}
 	}()
 
-	// setup websocket connection
+	ws = newWSConnection()
+}
+
+func newWSConnection() *websocket.Conn {
 	u := url.URL{Scheme: "ws", Host: "localhost:1234", Path: "/game/ws"}
 	var err error
 	ws, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
+	return ws
 }
 
 func teardown() {
