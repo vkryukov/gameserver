@@ -37,8 +37,8 @@ func mustReadWSMessage(t *testing.T) *gameserver.WebSocketMessage {
 }
 
 func TestJoiningNewGame(t *testing.T) {
-	user1 := mustRegisterAndAuthenticateUser(t, "user1-ws-joining@example.com", "user1-ws-password", "user1-ws")
-	user2 := mustRegisterAndAuthenticateUser(t, "user2-ws-joining@example.com", "user2-ws-password", "user2-ws")
+	user1 := mustRegisterAndAuthenticateRandomUser(t)
+	user2 := mustRegisterAndAuthenticateRandomUser(t)
 	game1 := mustCreateGame(t, user1, true, false)
 	mustJoinGame(t, user2, game1)
 	mustSendWSMessage(t, &gameserver.WebSocketMessage{GameID: game1.Id, Token: user1.Token, Type: "Join"})

@@ -39,7 +39,7 @@ func RegisterAuthHandlers(prefix, base string) {
 
 type Token string
 
-func generateToken() Token {
+func GenerateToken() Token {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return Token(fmt.Sprintf("%x", b))
@@ -97,7 +97,7 @@ type execer interface {
 }
 
 func addNewTokenToUser(exec execer, userID int) (Token, error) {
-	token := generateToken()
+	token := GenerateToken()
 	_, err := exec.Exec("INSERT INTO tokens(user_id, token) VALUES(?, ?)", userID, token)
 	return token, err
 }

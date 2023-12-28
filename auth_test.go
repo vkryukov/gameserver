@@ -49,6 +49,19 @@ func mustRegisterAndAuthenticateUser(t *testing.T, email string, password string
 	return mustAuthenticateUser(t, email, password)
 }
 
+func generateRandomUser() *gameserver.User {
+	return &gameserver.User{
+		Email:      string(gameserver.GenerateToken()) + "@example.com",
+		Password:   string(gameserver.GenerateToken()),
+		ScreenName: string(gameserver.GenerateToken())}
+}
+
+func mustRegisterAndAuthenticateRandomUser(t *testing.T) *gameserver.User {
+	user := generateRandomUser()
+	mustRegisterUser(t, user.Email, user.Password, user.ScreenName)
+	return mustAuthenticateUser(t, user.Email, user.Password)
+}
+
 func TestBasicRegistrationAndAuthentication(t *testing.T) {
 	testUser := mustRegisterUser(t, testEmail, testPassword, testScreenName)
 	// Test 1: after registering a user, it can be found with getUserWithEmail

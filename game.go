@@ -125,10 +125,10 @@ func CreateGame(request *Game) (*Game, error) {
 		return nil, fmt.Errorf("white and black players cannot be the same")
 	}
 
-	whiteToken = generateToken()
-	blackToken = generateToken()
+	whiteToken = GenerateToken()
+	blackToken = GenerateToken()
 	if !request.Public {
-		viewerToken = generateToken()
+		viewerToken = GenerateToken()
 	}
 
 	var whiteUserID, blackUserID int
@@ -383,7 +383,7 @@ func joinGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := generateToken()
+	token := GenerateToken()
 
 	// update the game
 	err = updateGame(game, user.Id, token)
