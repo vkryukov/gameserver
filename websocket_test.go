@@ -2,7 +2,6 @@ package gameserver_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -44,9 +43,7 @@ func mustMakeAction(t *testing.T, user *gameserver.User, game *gameserver.Game, 
 		t.Fatalf("Failed to marshal action: %v", err)
 	}
 	mustSendWSMessage(t, &gameserver.WebSocketMessage{GameID: game.Id, Token: user.Token, Type: "Action", Message: string(data)})
-	fmt.Println("Sent move")
 	r1 := mustReadWSMessage(t)
-	fmt.Println("Received immediate response")
 	if r1.Type == "Error" {
 		t.Fatalf("Received error message: %v", r1.Message)
 	}
@@ -60,7 +57,6 @@ func TestJoiningNewGame(t *testing.T) {
 	mustJoinGame(t, user2, game1)
 	mustSendWSMessage(t, &gameserver.WebSocketMessage{GameID: game1.Id, Token: user1.Token, Type: "Join"})
 	resp := mustReadWSMessage(t)
-	fmt.Println(resp.Type)
 	if resp.Type == "Error" {
 		t.Fatalf("Received error message: %v", resp.Message)
 	}
@@ -84,5 +80,16 @@ func TestJoiningNewGame(t *testing.T) {
 	}
 	if games[0].NumActions != 2 {
 		t.Fatalf("Expected 2 actions, got %d", games[0].NumActions)
+	}
+
+	game, err := gameserver.GetGameWithId(game1.Id)
+	if err != nil {
+		t.Fatalf("Failed to get game: %v", err)
+	}
+	if game.NumActions != 2 {
+		t.Fatalf("Expected 2 actions, got %d", game.NumActions)
+	}
+	if game.GameRecord != "a b" {
+		t.Fatalf("Expected game record 'a b', got '%s'", game.GameRecord)
 	}
 }

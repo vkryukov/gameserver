@@ -54,6 +54,7 @@ func InitDB(path string) error {
     CREATE TABLE IF NOT EXISTS games (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, 
 		type TEXT, -- type of the game (such as Gipf, ...)
+		starting_position TEXT,
 
 		-- white_user_id is the foreign key  of the user who playes as white
 		-- black_user_id is the id of the user who playes as black
