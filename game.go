@@ -288,7 +288,8 @@ func extractUserFromRequest(w http.ResponseWriter, r *http.Request) *User {
 func listGamesByUser(user *User) ([]*Game, error) {
 	query := `
 		SELECT 
-			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time
+			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time,
+			(SELECT COUNT(*) FROM (SELECT DISTINCT a.action_num FROM actions a WHERE g.id = a.game_id)) AS num_actions
 		FROM games g
 		LEFT JOIN users u1 ON g.white_user_id = u1.id
 		LEFT JOIN users u2 ON g.black_user_id = u2.id
@@ -302,7 +303,8 @@ func listGamesByUser(user *User) ([]*Game, error) {
 func joinableGamesByUser(user *User) ([]*Game, error) {
 	query := `
 		SELECT 
-			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time
+			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, g.viewer_token, g.game_over, g.game_result, g.creation_time,
+			0 AS num_actions
 		FROM games g
 		LEFT JOIN users u1 ON g.white_user_id = u1.id
 		LEFT JOIN users u2 ON g.black_user_id = u2.id
@@ -331,7 +333,7 @@ func getGamesWithQuery(query string, params ...any) ([]*Game, error) {
 		var creationTime float64
 
 		err := rows.Scan(&game.Id, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
-			&game.GameOver, &game.GameResult, &creationTime)
+			&game.GameOver, &game.GameResult, &creationTime, &game.NumActions)
 		if err != nil {
 			return nil, err
 		}

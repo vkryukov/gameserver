@@ -143,6 +143,9 @@ func processMessage(conn Conn, message WebSocketMessage, playerType PlayerType, 
 		if err := markGameAsFinished(message.GameID, message.Message); err != nil {
 			log.Printf("Error marking game as finished: %v", err)
 		}
+
+	default:
+		sendJSONMessage(conn, message.GameID, "Error", fmt.Sprintf("Unknown message type %s", message.Type))
 	}
 }
 
