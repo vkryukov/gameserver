@@ -44,40 +44,32 @@ func TestGameCreation(t *testing.T) {
 	if game.ViewerToken == "" {
 		t.Fatalf("Created non-public game with an empty viewer token: %q", game.ViewerToken)
 	}
-	if game.StartingPosition != "" {
-		t.Fatalf("Created game has a non-empty starting position: %s", game.StartingPosition)
-	}
 	if game.Type != "Gipf" {
 		t.Fatalf("Created game has a wrong type: %s", game.Type)
 	}
 
 	// Test 2: Can create a game with a starting position
 	game, err = gameserver.CreateGame(&gameserver.Game{
-		Type:             "Basic Gipf",
-		WhitePlayer:      screenName,
-		WhiteToken:       user.Token,
-		Public:           false,
-		StartingPosition: "a b c d e",
+		Type:        "Basic Gipf",
+		WhitePlayer: screenName,
+		WhiteToken:  user.Token,
+		Public:      false,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create game: %v", err)
 	}
-	if game.StartingPosition != "a b c d e" || game.NumActions != 0 || game.Type != "Basic Gipf" {
-		t.Fatalf("Created game has wrong game record: %s", mustPrettyPrint(t, game))
-	}
 
 	// Test 3: same but with a http handler
 	game2 := createGameWithRequest(t, &gameserver.Game{
-		Type:             "Basic Gipf",
-		BlackPlayer:      screenName,
-		BlackToken:       user.Token,
-		Public:           true,
-		StartingPosition: "h i j k",
+		Type:        "Basic Gipf",
+		BlackPlayer: screenName,
+		BlackToken:  user.Token,
+		Public:      true,
 	})
 	if game.Id == game2.Id {
 		t.Fatalf("Created game has same id: %d", game.Id)
 	}
-	if game2.StartingPosition != "h i j k" || game2.NumActions != 0 || game2.Public != true || game2.ViewerToken != "" || game.Type != "Basic Gipf" {
+	if game2.NumActions != 0 || game2.Public != true || game2.ViewerToken != "" || game.Type != "Basic Gipf" {
 		t.Fatalf("Created game has wrong game record: %s", mustPrettyPrint(t, game2))
 	}
 	if game2.WhiteToken != "" {

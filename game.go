@@ -21,27 +21,26 @@ func RegisterGameHandlers(prefix string) {
 // Game
 
 type Game struct {
-	Id               int    `json:"id"`
-	Type             string `json:"type"`
-	WhitePlayer      string `json:"white_player"`
-	BlackPlayer      string `json:"black_player"`
-	WhiteToken       Token  `json:"white_token"`
-	BlackToken       Token  `json:"black_token"`
-	ViewerToken      Token  `json:"viewer_token"`
-	GameOver         bool   `json:"game_over"`
-	GameResult       string `json:"game_result"`
-	CreationTime     int    `json:"creation_time"`
-	NumActions       int    `json:"num_actions"`
-	StartingPosition string `json:"starting_position"`
-	GameRecord       string `json:"game_record"`
-	Public           bool   `json:"public"`
+	Id           int    `json:"id"`
+	Type         string `json:"type"`
+	WhitePlayer  string `json:"white_player"`
+	BlackPlayer  string `json:"black_player"`
+	WhiteToken   Token  `json:"white_token"`
+	BlackToken   Token  `json:"black_token"`
+	ViewerToken  Token  `json:"viewer_token"`
+	GameOver     bool   `json:"game_over"`
+	GameResult   string `json:"game_result"`
+	CreationTime int    `json:"creation_time"`
+	NumActions   int    `json:"num_actions"`
+	GameRecord   string `json:"game_record"`
+	Public       bool   `json:"public"`
 }
 
 func GetGameWithId(id int) (*Game, error) {
 	query := `
 		SELECT 
 			g.id, g.type, u1.screen_name, u2.screen_name, g.white_token, g.black_token, 
-			g.viewer_token, g.game_over, g.game_result, g.creation_time, g.starting_position
+			g.viewer_token, g.game_over, g.game_result, g.creation_time
 		FROM games g
 		LEFT JOIN users u1 ON g.white_user_id = u1.id
 		LEFT JOIN users u2 ON g.black_user_id = u2.id
@@ -53,7 +52,7 @@ func GetGameWithId(id int) (*Game, error) {
 	var creationTime float64
 
 	err := db.QueryRow(query, id).Scan(&game.Id, &game.Type, &whiteUser, &blackUser, &game.WhiteToken, &game.BlackToken, &game.ViewerToken,
-		&game.GameOver, &game.GameResult, &creationTime, &game.StartingPosition)
+		&game.GameOver, &game.GameResult, &creationTime)
 	if err != nil {
 		return nil, err
 	}
@@ -152,9 +151,9 @@ func CreateGame(request *Game) (*Game, error) {
 	}
 
 	res, err := db.Exec(`
-		INSERT INTO games(type, white_user_id, black_user_id, white_token, black_token, viewer_token, starting_position) 
-		VALUES(?, ?, ?, ?, ?, ?, ?)
-	`, request.Type, whiteUserID, blackUserID, whiteToken, blackToken, viewerToken, request.StartingPosition)
+		INSERT INTO games(type, white_user_id, black_user_id, white_token, black_token, viewer_token) 
+		VALUES(?, ?, ?, ?, ?, ?)
+	`, request.Type, whiteUserID, blackUserID, whiteToken, blackToken, viewerToken)
 	if err != nil {
 		return nil, err
 	}
