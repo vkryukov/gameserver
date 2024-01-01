@@ -99,6 +99,7 @@ func processMessage(conn Conn, message WebSocketMessage, playerType PlayerType, 
 			"white_player": game.WhitePlayer,
 			"black_player": game.BlackPlayer,
 			"actions":      actions,
+			"game_type":    game.Type,
 		})
 
 	case "Action":

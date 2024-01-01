@@ -50,6 +50,15 @@ func mustMakeAction(t *testing.T, user *gameserver.User, game *gameserver.Game, 
 	return r1
 }
 
+func mustExtractMessage(t *testing.T, r *gameserver.WebSocketMessage) map[string]interface{} {
+	var content map[string]interface{}
+	err := json.Unmarshal([]byte(r.Message), &content)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal message: %v", err)
+	}
+	return content
+}
+
 func TestJoiningNewGame(t *testing.T) {
 	user1 := mustRegisterAndAuthenticateRandomUser(t)
 	user2 := mustRegisterAndAuthenticateRandomUser(t)
@@ -59,6 +68,10 @@ func TestJoiningNewGame(t *testing.T) {
 	resp := mustReadWSMessage(t)
 	if resp.Type == "Error" {
 		t.Fatalf("Received error message: %v", resp.Message)
+	}
+	content := mustExtractMessage(t, resp)
+	if _, ok := content["game_type"]; !ok {
+		t.Fatalf("Expected game_type in response, got %s", mustPrettyPrint(t, content))
 	}
 
 	// Test 1: we can send moves and receive responses
